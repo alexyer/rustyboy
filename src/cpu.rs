@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{
     errors::InstructionError,
     instruction::{Instruction, Opcode, PrefixedOpcode},
-    mmu::Mmu,
+    mmu::{Mmu, INT_ENABLE_ADDRESS},
 };
 
 macro_rules! prepare_data {
@@ -21,12 +21,19 @@ macro_rules! little_endian {
 }
 
 macro_rules! impl_flag {
-    ($set_flag:ident, $clear_flag:ident, $flag:ident, $i:expr) => {
+    ($set_flag:ident, $clear_flag:ident, $set_flag_to:ident, $flag:ident, $i:expr) => {
         fn $set_flag(&mut self) {
             self.f |= 1 << $i
         }
         fn $clear_flag(&mut self) {
             self.f &= !(1 << $i)
+        }
+        fn $set_flag_to(&mut self, value: bool) {
+            if value {
+                self.$set_flag()
+            } else {
+                self.$clear_flag()
+            }
         }
         fn $flag(&self) -> bool {
             self.f & 1 << $i != 0
@@ -175,6 +182,8 @@ pub struct Cpu {
 
     h: u8,
     l: u8,
+
+    interrupts_enabled: bool,
 }
 
 impl Display for Cpu {
@@ -194,13 +203,24 @@ impl Display for Cpu {
             .unwrap();
         f.write_str(&format!("D: 0x{:x} E: 0x{:x}\n", self.d, self.e))
             .unwrap();
-        f.write_str(&format!("H: 0x{:x} L: 0x{:x}\n", self.h, self.l))
+        f.write_str(&format!("H: 0x{:x} L: 0x{:x}", self.h, self.l))
     }
 }
 
 impl Cpu {
+    pub fn tick(&mut self, mmu: &mut Mmu) -> usize {
+        self.handle_interrupts(mmu);
+        self.exec_instruction(mmu)
+    }
+
+    fn handle_interrupts(&mut self, _mmu: &mut Mmu) {
+        if self.interrupts_enabled {
+            todo!()
+        }
+    }
+
     /// Execute the next instruction and return the number of T-states.
-    pub fn exec_instruction(&mut self, mmu: &mut Mmu) -> usize {
+    fn exec_instruction(&mut self, mmu: &mut Mmu) -> usize {
         match self.read_instruction(mmu) {
             Some(instruction) => {
                 match instruction.opcode() {
@@ -271,6 +291,7 @@ impl Cpu {
             Ok(opcode) => opcode,
             Err(InstructionError::UnrecognizedOpcode(opcode)) => {
                 println!("{}", self);
+                println!("IE: 0b{:b}", mmu.read_byte(INT_ENABLE_ADDRESS));
                 panic!("unrecognized opcode: 0x{:x}", opcode);
             }
             _ => unreachable!(),
@@ -280,7 +301,7 @@ impl Cpu {
         match opcode {
             Opcode::Nop => Some(Instruction::nop()),
             Opcode::LdSpD16 => {
-                let data = mmu.read_chunk(self.pc as usize, 2);
+                let data = mmu.read_slice(self.pc as usize, 2);
                 self.pc += 2;
 
                 Some(Instruction::ld_sp_d16(&data))
@@ -367,13 +388,13 @@ impl Cpu {
                 Some(Instruction::sub_d8(data))
             }
             Opcode::LdHlD16 => {
-                let data = mmu.read_chunk(self.pc as usize, 2);
+                let data = mmu.read_slice(self.pc as usize, 2);
                 self.pc += 2;
 
                 Some(Instruction::ld_hl_d16(&data))
             }
             Opcode::LdDeD16 => {
-                let data = mmu.read_chunk(self.pc as usize, 2);
+                let data = mmu.read_slice(self.pc as usize, 2);
                 self.pc += 2;
 
                 Some(Instruction::ld_de_d16(&data))
@@ -403,7 +424,7 @@ impl Cpu {
                 Some(Instruction::jr_z_r8(data))
             }
             Opcode::CallA16 => {
-                let data = mmu.read_chunk(self.pc as usize, 2);
+                let data = mmu.read_slice(self.pc as usize, 2);
                 self.pc += 2;
 
                 Some(Instruction::call_a16(&data))
@@ -411,7 +432,7 @@ impl Cpu {
             Opcode::Ret => Some(Instruction::ret(&[])),
             Opcode::RlA => Some(Instruction::rl_a(&[])),
             Opcode::LdA16A => {
-                let data = mmu.read_chunk(self.pc as usize, 2);
+                let data = mmu.read_slice(self.pc as usize, 2);
                 self.pc += 2;
 
                 Some(Instruction::ld_a16_a(&data))
@@ -438,10 +459,10 @@ impl Cpu {
         }
     }
 
-    impl_flag!(set_z, clear_z, z, 6);
-    impl_flag!(set_n, clear_n, n, 5);
-    impl_flag!(set_h, clear_h, h, 4);
-    impl_flag!(set_c, clear_c, c, 3);
+    impl_flag!(set_z, clear_z, set_z_to, z, 6);
+    impl_flag!(set_n, clear_n, set_n_to, n, 5);
+    impl_flag!(set_h, clear_h, set_h_to, h, 4);
+    impl_flag!(set_c, clear_c, set_c_to, c, 3);
 
     fn hl(&self) -> u16 {
         little_endian!(self.l, self.h)
@@ -542,12 +563,7 @@ impl Cpu {
         self.clear_n();
         self.check_z(self.a);
         self.check_h(self.a);
-
-        if c {
-            self.set_c();
-        } else {
-            self.clear_c();
-        }
+        self.set_c_to(c);
     }
 
     fn sub_d8(&mut self, data: &[u8; 1]) {
@@ -557,12 +573,7 @@ impl Cpu {
         self.set_n();
         self.check_z(self.a);
         self.check_h(self.a);
-
-        if c {
-            self.set_c();
-        } else {
-            self.clear_c();
-        }
+        self.set_c_to(c);
     }
 
     fn cp_d8(&mut self, data: &[u8; 1]) {
@@ -571,12 +582,7 @@ impl Cpu {
         self.set_n();
         self.check_z(res);
         self.check_h(res);
-
-        if c {
-            self.set_c();
-        } else {
-            self.clear_c();
-        }
+        self.set_c_to(c);
     }
 
     dec_r!(a, dec_a);
@@ -623,12 +629,7 @@ impl Cpu {
         self.clear_n();
         self.clear_h();
         self.check_z(res);
-
-        if c {
-            self.set_c()
-        } else {
-            self.clear_c()
-        }
+        self.set_c_to(c);
     }
 
     fn rl_a(&mut self) {
@@ -638,12 +639,7 @@ impl Cpu {
         self.clear_z();
         self.clear_n();
         self.clear_h();
-
-        if c {
-            self.set_c()
-        } else {
-            self.clear_c()
-        }
+        self.set_c_to(c);
     }
 
     fn rr_d(&mut self) {
@@ -653,12 +649,7 @@ impl Cpu {
         self.clear_n();
         self.clear_h();
         self.check_z(res);
-
-        if c {
-            self.set_c()
-        } else {
-            self.clear_c()
-        }
+        self.set_c_to(c);
     }
 
     fn jr_nz_r8(&mut self, data: &[u8; 1]) {

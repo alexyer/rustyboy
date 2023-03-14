@@ -1,8 +1,10 @@
 mod cpu;
 mod errors;
+mod frame_buffer;
 mod gb;
 mod instruction;
 mod mmu;
+mod ppu;
 
 use std::{fs::File, io::Read};
 
