@@ -270,6 +270,7 @@ impl Cpu {
                     Opcode::JrR8 => self.jr_r8(&prepare_data!(instruction, 1)),
                     Opcode::JrNzR8 => self.jr_nz_r8(&prepare_data!(instruction, 1)),
                     Opcode::JrZR8 => self.jr_z_r8(&prepare_data!(instruction, 1)),
+                    Opcode::JpA16 => self.jp_a16(&prepare_data!(instruction, 2)),
                     Opcode::CallA16 => self.call_a16(&prepare_data!(instruction, 2), mmu),
                     Opcode::Ret => self.ret(mmu),
                     Opcode::RlA => self.rl_a(),
@@ -426,6 +427,12 @@ impl Cpu {
                 self.pc += 1;
 
                 Some(Instruction::jr_z_r8(data))
+            }
+            Opcode::JpA16 => {
+                let data = mmu.read_slice(self.pc as usize, 2);
+                self.pc += 2;
+
+                Some(Instruction::jp_a16(&data))
             }
             Opcode::CallA16 => {
                 let data = mmu.read_slice(self.pc as usize, 2);
@@ -673,6 +680,10 @@ impl Cpu {
     fn jr_r8(&mut self, data: &[u8; 1]) {
         let offset = data[0] as i8;
         self.pc = self.pc.wrapping_add_signed(offset as i16);
+    }
+
+    fn jp_a16(&mut self, data: &[u8; 2]) {
+        self.pc = little_endian!(data[0], data[1]);
     }
 }
 
@@ -1515,5 +1526,17 @@ mod tests {
 
         assert_eq!(cycles, 12);
         assert_eq!(cpu.pc, 4);
+    }
+
+    #[test]
+    fn test_jp_a16() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        mmu.write_slice(&[0xc3, 0x05, 0x0a], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 16);
+        assert_eq!(cpu.pc, 0x0a05);
     }
 }

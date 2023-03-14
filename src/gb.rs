@@ -1,6 +1,5 @@
-use std::ffi::CString;
-
 use crate::{
+    cartridge::load_cartridge,
     cpu::Cpu,
     mmu::{Mmu, INT_ENABLE_ADDRESS},
     ppu::Ppu,
@@ -16,23 +15,16 @@ pub struct GameBoy {
 
 impl GameBoy {
     pub fn new(boot_rom: &[u8], rom: &[u8]) -> Self {
-        let mut gb = Self {
+        let cartridge = load_cartridge(rom);
+
+        println!("ROM name: {}", cartridge.name());
+        println!("Cartridge type: {:?}", cartridge.cartridge_type());
+
+        let gb = Self {
             cpu: Cpu::default(),
-            mmu: Mmu::default(),
+            mmu: Mmu::new(Some(boot_rom.to_vec()), cartridge),
             ppu: Ppu::default(),
         };
-
-        // TODO(alexyer): proper loading
-        gb.mmu.write_slice(&rom[..0x4000], 0);
-        gb.mmu.write_slice(&boot_rom, 0);
-
-        let name_bytes = gb.mmu.read_slice(0x134, 15);
-        let name = name_bytes.split(|c| *c == 0).next().unwrap();
-
-        println!(
-            "ROM name: {}",
-            CString::new(name).unwrap().into_string().unwrap()
-        );
 
         gb
     }

@@ -121,6 +121,7 @@ impl Instruction {
     impl_instruction_constructor!(jr_r8, Opcode::JrR8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(jr_nz_r8, Opcode::JrNzR8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(jr_z_r8, Opcode::JrZR8, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(jp_a16, Opcode::JpA16, None::<PrefixedOpcode>);
     impl_instruction_constructor!(call_a16, Opcode::CallA16, None::<PrefixedOpcode>);
     impl_instruction_constructor!(bit0d, Opcode::Prefix, Some(PrefixedOpcode::Bit0D));
     impl_instruction_constructor!(bit7h, Opcode::Prefix, Some(PrefixedOpcode::Bit7H));
@@ -141,6 +142,7 @@ pub enum Opcode {
     JrR8,
     JrNzR8,
     JrZR8,
+    JpA16,
     CallA16,
     Ret,
 
@@ -204,6 +206,7 @@ impl Opcode {
             Opcode::JrR8 => 1,
             Opcode::JrNzR8 => 1,
             Opcode::JrZR8 => 1,
+            Opcode::JpA16 => 2,
             Opcode::LdAD8 => 1,
             Opcode::LdBD8 => 1,
             Opcode::LdCD8 => 1,
@@ -263,6 +266,7 @@ impl Opcode {
             Opcode::JrZR8 => 12,
             // FIXME(alexyer): Dynamic cycles
             Opcode::JrNzR8 => 12,
+            Opcode::JpA16 => 16,
             Opcode::LdAD8 => 8,
             Opcode::LdBD8 => 8,
             Opcode::LdCD8 => 8,
@@ -357,6 +361,7 @@ impl TryFrom<&u8> for Opcode {
             0x80 => Ok(Opcode::AddAB),
             0xaf => Ok(Opcode::XorA),
             0xc1 => Ok(Opcode::PopBC),
+            0xc3 => Ok(Opcode::JpA16),
             0xc5 => Ok(Opcode::PushBC),
             0xc9 => Ok(Opcode::Ret),
             0xcb => Ok(Opcode::Prefix),

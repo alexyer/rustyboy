@@ -1,3 +1,4 @@
+mod cartridge;
 mod cpu;
 mod errors;
 mod frame_buffer;
