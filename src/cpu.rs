@@ -55,6 +55,14 @@ macro_rules! ld_rr_d16 {
     };
 }
 
+macro_rules! ld_ind_rr_r {
+    ($ll: ident, $hh: ident, $r:ident, $name:ident) => {
+        fn $name(&mut self, mmu: &mut Mmu) {
+            mmu.write_byte(little_endian!(self.$ll, self.$hh) as usize, self.$r);
+        }
+    };
+}
+
 macro_rules! ld_r_d8 {
     ($rr:ident, $name:ident) => {
         fn $name(&mut self, data: &[u8; 1]) {
@@ -71,7 +79,7 @@ macro_rules! ld_r_r {
     };
 }
 
-macro_rules! push_r {
+macro_rules! push_rr {
     ($hh:ident, $ll:ident, $name:ident) => {
         fn $name(&mut self, mmu: &mut Mmu) {
             self.sp -= 1;
@@ -84,7 +92,7 @@ macro_rules! push_r {
     };
 }
 
-macro_rules! pop_r {
+macro_rules! pop_rr {
     ($hh:ident, $ll:ident, $name:ident) => {
         fn $name(&mut self, mmu: &Mmu) {
             self.$ll = mmu.read_byte(self.sp as usize);
@@ -161,6 +169,23 @@ macro_rules! inc_r {
     };
 }
 
+macro_rules! or_r {
+    ($r: ident, $name:ident) => {
+        fn $name(&mut self) {
+            self.a |= self.$r;
+            self.set_z_to(self.a == 0);
+        }
+    };
+}
+
+macro_rules! ld_r_a16 {
+    ($r:ident, $name:ident) => {
+        fn $name(&mut self, data: &[u8; 2], mmu: &Mmu) {
+            self.$r = mmu.read_byte(little_endian!(data[0], data[1]) as usize);
+        }
+    };
+}
+
 #[derive(Default, Debug)]
 pub struct Cpu {
     /// Program Counter/Pointer
@@ -225,15 +250,20 @@ impl Cpu {
             Some(instruction) => {
                 match instruction.opcode() {
                     Opcode::Nop => (),
-                    Opcode::LdDeD16 => self.ld_de_d16(&prepare_data!(instruction, 2)),
-                    Opcode::LdSpD16 => self.ld_sp_d16(&prepare_data!(instruction, 2)),
+                    Opcode::Di => self.di(mmu),
+                    Opcode::LdBCD16 => self.ld_bc_d16(&prepare_data!(instruction, 2)),
+                    Opcode::LdDED16 => self.ld_de_d16(&prepare_data!(instruction, 2)),
+                    Opcode::LdSPD16 => self.ld_sp_d16(&prepare_data!(instruction, 2)),
                     Opcode::LdAD8 => self.ld_a_d8(&prepare_data!(instruction, 1)),
+                    Opcode::LdAA16 => self.ld_a_a16(&prepare_data!(instruction, 2), &mmu),
                     Opcode::LdBD8 => self.ld_b_d8(&prepare_data!(instruction, 1)),
                     Opcode::LdCD8 => self.ld_c_d8(&prepare_data!(instruction, 1)),
                     Opcode::LdDD8 => self.ld_d_d8(&prepare_data!(instruction, 1)),
                     Opcode::LdED8 => self.ld_e_d8(&prepare_data!(instruction, 1)),
                     Opcode::LdLD8 => self.ld_l_d8(&prepare_data!(instruction, 1)),
+                    Opcode::LdAB => self.ld_a_b(),
                     Opcode::LdAE => self.ld_a_e(),
+                    Opcode::LdAH => self.ld_a_h(),
                     Opcode::LdAL => self.ld_a_l(),
                     Opcode::LdBA => self.ld_b_a(),
                     Opcode::LdCA => self.ld_c_a(),
@@ -242,13 +272,18 @@ impl Cpu {
                     Opcode::LdHA => self.ld_h_a(),
                     Opcode::PushAF => self.push_af(mmu),
                     Opcode::PushBC => self.push_bc(mmu),
+                    Opcode::PushHL => self.push_hl(mmu),
                     Opcode::PopAF => self.pop_af(mmu),
                     Opcode::PopBC => self.pop_bc(mmu),
+                    Opcode::PopHL => self.pop_hl(mmu),
                     Opcode::LdhAA8 => self.ldh_a_a8(&prepare_data!(instruction, 1), mmu),
                     Opcode::LdhA8A => self.ldh_a8_a(&prepare_data!(instruction, 1), mmu),
                     Opcode::LdAIndHLInc => self.ld_a_ind_hl_inc(mmu),
                     Opcode::IncB => self.inc_b(),
                     Opcode::IncC => self.inc_c(),
+                    Opcode::IncD => self.inc_d(),
+                    Opcode::IncE => self.inc_e(),
+                    Opcode::IncBC => self.inc_bc(),
                     Opcode::IncDE => self.inc_de(),
                     Opcode::IncHL => self.inc_hl(),
                     Opcode::DecA => self.dec_a(),
@@ -257,12 +292,15 @@ impl Cpu {
                     Opcode::DecD => self.dec_d(),
                     Opcode::DecE => self.dec_e(),
                     Opcode::DecDE => self.dec_de(),
+                    Opcode::OrC => self.or_c(),
                     Opcode::XorA => self.xor_a(),
+                    Opcode::AndD8 => self.and_d8(&prepare_data!(instruction, 1)),
                     Opcode::AddAB => self.add_a_b(),
                     Opcode::SubD8 => self.sub_d8(&prepare_data!(instruction, 1)),
                     Opcode::CpD8 => self.cp_d8(&prepare_data!(instruction, 1)),
                     Opcode::LdAIndDE => self.ld_a_ind_de(mmu),
-                    Opcode::LdHlD16 => self.ld_hl_d16(&prepare_data!(instruction, 2)),
+                    Opcode::LdHLD16 => self.ld_hl_d16(&prepare_data!(instruction, 2)),
+                    Opcode::LdIndDEA => self.ld_ind_de_a(mmu),
                     Opcode::LdIndHLA => self.ld_ind_hl_a(mmu),
                     Opcode::LdIndHLDecA => self.ld_ind_hl_dec_a(mmu),
                     Opcode::LdIndHLIncA => self.ld_ind_hl_inc_a(mmu),
@@ -303,7 +341,7 @@ impl Cpu {
 
         match opcode {
             Opcode::Nop => Some(Instruction::nop()),
-            Opcode::LdSpD16 => {
+            Opcode::LdSPD16 => {
                 let data = mmu.read_slice(self.pc as usize, 2);
                 self.pc += 2;
 
@@ -314,6 +352,12 @@ impl Cpu {
                 self.pc += 1;
 
                 Some(Instruction::ld_a_d8(data))
+            }
+            Opcode::LdAA16 => {
+                let data = mmu.read_slice(self.pc as usize, 2);
+                self.pc += 2;
+
+                Some(Instruction::ld_a_a16(&data))
             }
             Opcode::LdBD8 => {
                 let data = &[mmu.read_byte(self.pc as usize)];
@@ -357,7 +401,9 @@ impl Cpu {
 
                 Some(Instruction::ldh_a8_a(data))
             }
+            Opcode::LdAB => Some(Instruction::ld_a_b(&[])),
             Opcode::LdAE => Some(Instruction::ld_a_e(&[])),
+            Opcode::LdAH => Some(Instruction::ld_a_h(&[])),
             Opcode::LdAL => Some(Instruction::ld_a_l(&[])),
             Opcode::LdBA => Some(Instruction::ld_b_a(&[])),
             Opcode::LdCA => Some(Instruction::ld_c_a(&[])),
@@ -366,10 +412,15 @@ impl Cpu {
             Opcode::LdHA => Some(Instruction::ld_h_a(&[])),
             Opcode::PushAF => Some(Instruction::push_af(&[])),
             Opcode::PushBC => Some(Instruction::push_bc(&[])),
+            Opcode::PushHL => Some(Instruction::push_hl(&[])),
             Opcode::PopAF => Some(Instruction::pop_af(&[])),
             Opcode::PopBC => Some(Instruction::pop_bc(&[])),
+            Opcode::PopHL => Some(Instruction::pop_hl(&[])),
             Opcode::IncB => Some(Instruction::inc_b(&[])),
             Opcode::IncC => Some(Instruction::inc_c(&[])),
+            Opcode::IncD => Some(Instruction::inc_d(&[])),
+            Opcode::IncE => Some(Instruction::inc_e(&[])),
+            Opcode::IncBC => Some(Instruction::inc_bc(&[])),
             Opcode::IncDE => Some(Instruction::inc_de(&[])),
             Opcode::IncHL => Some(Instruction::inc_hl(&[])),
             Opcode::DecA => Some(Instruction::dec_a(&[])),
@@ -378,7 +429,14 @@ impl Cpu {
             Opcode::DecD => Some(Instruction::dec_d(&[])),
             Opcode::DecE => Some(Instruction::dec_e(&[])),
             Opcode::DecDE => Some(Instruction::dec_de(&[])),
+            Opcode::OrC => Some(Instruction::or_c(&[])),
             Opcode::XorA => Some(Instruction::xor_a(&[])),
+            Opcode::AndD8 => {
+                let data = &[mmu.read_byte(self.pc as usize)];
+                self.pc += 1;
+
+                Some(Instruction::and_d8(data))
+            }
             Opcode::AddAB => Some(Instruction::add_a_b(&[])),
             Opcode::CpD8 => {
                 let data = &[mmu.read_byte(self.pc as usize)];
@@ -392,18 +450,25 @@ impl Cpu {
 
                 Some(Instruction::sub_d8(data))
             }
-            Opcode::LdHlD16 => {
+            Opcode::LdHLD16 => {
                 let data = mmu.read_slice(self.pc as usize, 2);
                 self.pc += 2;
 
                 Some(Instruction::ld_hl_d16(&data))
             }
-            Opcode::LdDeD16 => {
+            Opcode::LdBCD16 => {
+                let data = mmu.read_slice(self.pc as usize, 2);
+                self.pc += 2;
+
+                Some(Instruction::ld_bc_d16(&data))
+            }
+            Opcode::LdDED16 => {
                 let data = mmu.read_slice(self.pc as usize, 2);
                 self.pc += 2;
 
                 Some(Instruction::ld_de_d16(&data))
             }
+            Opcode::LdIndDEA => Some(Instruction::ld_ind_de_a(&[])),
             Opcode::LdIndHLA => Some(Instruction::ld_ind_hl_a(&[])),
             Opcode::LdIndHLDecA => Some(Instruction::ld_ind_hl_dec_a(&[])),
             Opcode::LdIndHLIncA => Some(Instruction::ld_ind_hl_inc_a(&[])),
@@ -467,6 +532,7 @@ impl Cpu {
                     PrefixedOpcode::RrD => Some(Instruction::rr_d(&[])),
                 }
             }
+            Opcode::Di => Some(Instruction::di(&[])),
         }
     }
 
@@ -517,13 +583,22 @@ impl Cpu {
         self.pc = little_endian!(ll, hh);
     }
 
-    push_r!(a, f, push_af);
-    push_r!(b, c, push_bc);
+    fn di(&self, mmu: &mut Mmu) {
+        mmu.write_byte(INT_ENABLE_ADDRESS, 0);
+    }
 
-    pop_r!(a, f, pop_af);
-    pop_r!(b, c, pop_bc);
+    push_rr!(a, f, push_af);
+    push_rr!(b, c, push_bc);
+    push_rr!(h, l, push_hl);
+
+    pop_rr!(a, f, pop_af);
+    pop_rr!(b, c, pop_bc);
+    pop_rr!(h, l, pop_hl);
+
+    ld_r_a16!(a, ld_a_a16);
 
     ld_rr_d16!(sp, ld_sp_d16);
+    ld_rr_d16!(c, b, ld_bc_d16);
     ld_rr_d16!(e, d, ld_de_d16);
     ld_rr_d16!(l, h, ld_hl_d16);
 
@@ -534,7 +609,9 @@ impl Cpu {
     ld_r_d8!(e, ld_e_d8);
     ld_r_d8!(l, ld_l_d8);
 
+    ld_r_r!(a, b, ld_a_b);
     ld_r_r!(a, e, ld_a_e);
+    ld_r_r!(a, h, ld_a_h);
     ld_r_r!(a, l, ld_a_l);
     ld_r_r!(b, a, ld_b_a);
     ld_r_r!(c, a, ld_c_a);
@@ -542,7 +619,7 @@ impl Cpu {
     ld_r_r!(d, l, ld_d_l);
     ld_r_r!(h, a, ld_h_a);
 
-    fn ldh_a8_a(&mut self, data: &[u8; 1], mmu: &mut Mmu) {
+    fn ldh_a8_a(&self, data: &[u8; 1], mmu: &mut Mmu) {
         let addr = 0xff00 + data[0] as u16;
         mmu.write_byte(addr as usize, self.a)
     }
@@ -552,10 +629,18 @@ impl Cpu {
         self.a = mmu.read_byte(addr as usize);
     }
 
-    fn ld_a16_a(&mut self, data: &[u8; 2], mmu: &mut Mmu) {
+    fn ld_a16_a(&self, data: &[u8; 2], mmu: &mut Mmu) {
         let addr = u16::from_le_bytes(*data);
         mmu.write_byte(addr as usize, self.a);
     }
+
+    fn and_d8(&mut self, data: &[u8; 1]) {
+        self.a &= data[0];
+        self.set_z_to(self.a == 0);
+        self.set_h();
+    }
+
+    or_r!(c, or_c);
 
     fn xor_a(&mut self) {
         self.a = 0;
@@ -564,9 +649,12 @@ impl Cpu {
 
     inc_r!(b, inc_b);
     inc_r!(c, inc_c);
+    inc_r!(d, inc_d);
+    inc_r!(e, inc_e);
 
-    inc_rr!(l, h, inc_hl);
+    inc_rr!(c, b, inc_bc);
     inc_rr!(e, d, inc_de);
+    inc_rr!(l, h, inc_hl);
 
     fn add_a_b(&mut self) {
         let (res, c) = self.a.overflowing_add(self.b);
@@ -614,9 +702,8 @@ impl Cpu {
         self.a = mmu.read_byte(little_endian!(self.e, self.d) as usize);
     }
 
-    fn ld_ind_hl_a(&mut self, mmu: &mut Mmu) {
-        mmu.write_byte(little_endian!(self.l, self.h) as usize, self.a);
-    }
+    ld_ind_rr_r!(l, h, a, ld_ind_hl_a);
+    ld_ind_rr_r!(e, d, a, ld_ind_de_a);
 
     fn ld_ind_hl_dec_a(&mut self, mmu: &mut Mmu) {
         self.ld_ind_hl_a(mmu);
@@ -691,6 +778,170 @@ impl Cpu {
 mod tests {
     use super::*;
 
+    macro_rules! test_inc_r {
+        ($r:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.$r = 41;
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 4);
+                assert_eq!(cpu.pc, 1);
+                assert_eq!(cpu.$r, 42);
+                assert!(!cpu.h());
+            }
+        };
+    }
+
+    macro_rules! test_ld_r_r {
+        ($dst:ident, $src:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.$src = 42;
+                cpu.$dst = 0;
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 4);
+                assert_eq!(cpu.pc, 1);
+                assert_eq!(cpu.$dst, 42);
+            }
+        };
+    }
+
+    macro_rules! test_push_rr {
+        ($hh: ident, $ll:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                mmu.write_slice($mnemonic, 0);
+                cpu.$hh = 0xfe;
+                cpu.$ll = 0xff;
+                cpu.sp = 10;
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 16);
+                assert_eq!(cpu.pc, 1);
+                assert_eq!(cpu.sp, 8);
+                assert_eq!(mmu.read_byte(9), 0xfe);
+                assert_eq!(mmu.read_byte(8), 0xff);
+            }
+        };
+    }
+
+    macro_rules! test_pop_rr {
+        ($hh: ident, $ll:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                mmu.write_slice($mnemonic, 0);
+                cpu.sp = 1;
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.pc, 1);
+                assert_eq!(cpu.sp, 3);
+                assert_eq!(cpu.$hh, 0xff);
+                assert_eq!(cpu.$ll, 0xfe);
+            }
+        };
+    }
+
+    macro_rules! test_ld_rr_d16 {
+        ($ll:ident, $hh:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.pc, 3);
+                assert_eq!(cpu.$hh, 0xff);
+                assert_eq!(cpu.$ll, 0xfe);
+            }
+        };
+    }
+
+    macro_rules! test_inc_rr {
+        ($ll:ident, $hh:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.$ll = 41;
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 8);
+                assert_eq!(cpu.pc, 1);
+                assert_eq!(cpu.$ll, 42);
+            }
+        };
+    }
+
+    macro_rules! test_or_r {
+        ($r:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.$r = 0x0f;
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 4);
+                assert_eq!(cpu.pc, 1);
+                assert_eq!(cpu.a, 0x0f);
+                assert!(!cpu.z());
+
+                cpu.pc = 0;
+                cpu.a = 0;
+                cpu.$r = 0;
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 4);
+                assert_eq!(cpu.pc, 1);
+                assert_eq!(cpu.a, 0);
+                assert!(cpu.z());
+            }
+        };
+    }
+
+    macro_rules! test_ld_r_a16 {
+        ($r:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                mmu.write_slice($mnemonic, 0);
+                mmu.write_byte(0x0005, 42);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 16);
+                assert_eq!(cpu.pc, 3);
+                assert_eq!(cpu.$r, 42);
+            }
+        };
+    }
+
     #[test]
     fn test_nop() {
         let mut cpu = Cpu::default();
@@ -704,40 +955,21 @@ mod tests {
     }
 
     #[test]
-    fn test_push_af() {
+    fn test_di() {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
-        mmu.write_slice(&[0xf5], 0);
-        cpu.a = 42;
-        cpu.set_z();
-        cpu.sp = 10;
+        mmu.write_slice(&[0xf3], 0);
 
         let cycles = cpu.exec_instruction(&mut mmu);
 
-        assert_eq!(cycles, 16);
+        assert_eq!(cycles, 4);
         assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.sp, 8);
-        assert_eq!(mmu.read_byte(9), 42);
-        assert_eq!(mmu.read_byte(8), 0b01000000);
+        assert_eq!(mmu.read_byte(INT_ENABLE_ADDRESS), 0);
     }
 
-    #[test]
-    fn test_push_bc() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        mmu.write_slice(&[0xc5], 0);
-        cpu.b = 0xfe;
-        cpu.c = 0xff;
-        cpu.sp = 10;
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 16);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.sp, 8);
-        assert_eq!(mmu.read_byte(9), 0xfe);
-        assert_eq!(mmu.read_byte(8), 0xff);
-    }
+    test_push_rr!(a, f, &[0xf5], test_push_af);
+    test_push_rr!(b, c, &[0xc5], test_push_bc);
+    test_push_rr!(h, l, &[0xe5], test_push_hl);
 
     #[test]
     fn test_call_a16() {
@@ -769,37 +1001,9 @@ mod tests {
         assert_eq!(cpu.sp, 3);
     }
 
-    #[test]
-    fn test_pop_af() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        mmu.write_slice(&[0xf1, 0xfe, 0xff], 0);
-        cpu.sp = 1;
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 12);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.sp, 3);
-        assert_eq!(cpu.a, 0xff);
-        assert_eq!(cpu.f, 0xfe);
-    }
-
-    #[test]
-    fn test_pop_bc() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        mmu.write_slice(&[0xc1, 0xfe, 0xff], 0);
-        cpu.sp = 1;
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 12);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.sp, 3);
-        assert_eq!(cpu.b, 0xff);
-        assert_eq!(cpu.c, 0xfe);
-    }
+    test_pop_rr!(a, f, &[0xf1, 0xfe, 0xff], test_pop_af);
+    test_pop_rr!(b, c, &[0xc1, 0xfe, 0xff], test_pop_bc);
+    test_pop_rr!(h, l, &[0xe1, 0xfe, 0xff], test_pop_hl);
 
     #[test]
     fn test_ld_sp_d16() {
@@ -814,33 +1018,9 @@ mod tests {
         assert_eq!(cpu.sp, 0xfffe);
     }
 
-    #[test]
-    fn test_ld_de_d16() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        mmu.write_slice(&[0x11, 0xfe, 0xff], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 12);
-        assert_eq!(cpu.pc, 3);
-        assert_eq!(cpu.d, 0xff);
-        assert_eq!(cpu.e, 0xfe);
-    }
-
-    #[test]
-    fn test_ld_hl_d16() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        mmu.write_slice(&[0x21, 0xfe, 0xff], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 12);
-        assert_eq!(cpu.pc, 3);
-        assert_eq!(cpu.h, 0xff);
-        assert_eq!(cpu.l, 0xfe);
-    }
+    test_ld_rr_d16!(c, b, &[0x01, 0xfe, 0xff], test_ld_bc_d16);
+    test_ld_rr_d16!(e, d, &[0x11, 0xfe, 0xff], test_ld_de_d16);
+    test_ld_rr_d16!(l, h, &[0x21, 0xfe, 0xff], test_ld_hl_d16);
 
     #[test]
     fn test_ld_a_d8() {
@@ -868,95 +1048,15 @@ mod tests {
         assert_eq!(cpu.b, 0xff);
     }
 
-    #[test]
-    fn test_ld_a_l() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.l = 42;
-        cpu.a = 0;
-        mmu.write_slice(&[0x7d], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 4);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.a, 42);
-    }
-
-    #[test]
-    fn test_ld_b_a() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.a = 42;
-        cpu.b = 0;
-        mmu.write_slice(&[0x47], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 4);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.b, 42);
-    }
-
-    #[test]
-    fn test_ld_c_a() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.a = 42;
-        cpu.c = 0;
-        mmu.write_slice(&[0x4f], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 4);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.c, 42);
-    }
-
-    #[test]
-    fn test_ld_d_a() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.a = 42;
-        cpu.d = 0;
-        mmu.write_slice(&[0x57], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 4);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.d, 42);
-    }
-
-    #[test]
-    fn test_ld_d_l() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.l = 42;
-        cpu.d = 0;
-        mmu.write_slice(&[0x55], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 4);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.d, 42);
-    }
-
-    #[test]
-    fn test_ld_h_a() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.a = 42;
-        cpu.h = 0;
-        mmu.write_slice(&[0x67], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 4);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.h, 42);
-    }
+    test_ld_r_r!(a, b, &[0x78], test_ld_a_b);
+    test_ld_r_r!(a, e, &[0x7b], test_ld_a_e);
+    test_ld_r_r!(a, h, &[0x7c], test_ld_a_h);
+    test_ld_r_r!(a, l, &[0x7d], test_ld_a_l);
+    test_ld_r_r!(b, a, &[0x47], test_ld_b_a);
+    test_ld_r_r!(c, a, &[0x4f], test_ld_c_a);
+    test_ld_r_r!(d, a, &[0x57], test_ld_d_a);
+    test_ld_r_r!(d, l, &[0x55], test_ld_d_l);
+    test_ld_r_r!(h, a, &[0x67], test_ld_h_a);
 
     #[test]
     fn test_ld_c_d8() {
@@ -1038,6 +1138,8 @@ mod tests {
         assert_eq!(mmu.read_byte(0xff00), 42);
     }
 
+    test_ld_r_a16!(a, &[0xfa, 0x05, 0x00], test_ld_a_a16);
+
     #[test]
     fn test_ldh_a_a8() {
         let mut cpu = Cpu::default();
@@ -1052,6 +1154,8 @@ mod tests {
         assert_eq!(cpu.pc, 2);
         assert_eq!(cpu.a, 42);
     }
+
+    test_or_r!(c, &[0xb1], test_or_c);
 
     #[test]
     fn test_xor_a() {
@@ -1084,6 +1188,33 @@ mod tests {
         assert!(!cpu.z());
         assert!(!cpu.c());
         assert!(!cpu.n());
+        assert!(cpu.h());
+    }
+
+    #[test]
+    fn test_and_d8() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.a = 0xf0;
+        mmu.write_slice(&[0xe6, 0x0f], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.pc, 2);
+        assert_eq!(cpu.a, 0);
+        assert!(cpu.z());
+        assert!(cpu.h());
+
+        cpu.a = 0x0f;
+        cpu.pc = 0;
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.pc, 2);
+        assert_eq!(cpu.a, 0x0f);
+        assert!(!cpu.z());
         assert!(cpu.h());
     }
 
@@ -1123,63 +1254,13 @@ mod tests {
         assert!(!cpu.h());
     }
 
-    #[test]
-    fn test_inc_b() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.b = 41;
-        mmu.write_slice(&[0x04], 0);
+    test_inc_r!(b, &[0x04], test_inc_b);
+    test_inc_r!(c, &[0x0c], test_inc_c);
+    test_inc_r!(e, &[0x1c], test_inc_e);
 
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 4);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.b, 42);
-        assert!(!cpu.h());
-    }
-
-    #[test]
-    fn test_inc_c() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.c = 41;
-        mmu.write_slice(&[0x0c], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 4);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.c, 42);
-        assert!(!cpu.h());
-    }
-
-    #[test]
-    fn test_inc_hl() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.l = 41;
-        mmu.write_slice(&[0x23], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 8);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.l, 42);
-    }
-
-    #[test]
-    fn test_inc_de() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.e = 41;
-        mmu.write_slice(&[0x13], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 8);
-        assert_eq!(cpu.pc, 1);
-        assert_eq!(cpu.e, 42);
-    }
+    test_inc_rr!(c, b, &[0x03], test_inc_bc);
+    test_inc_rr!(e, d, &[0x13], test_inc_de);
+    test_inc_rr!(l, h, &[0x23], test_inc_hl);
 
     #[test]
     fn test_dec_a() {
@@ -1298,6 +1379,21 @@ mod tests {
         assert_eq!(cycles, 8);
         assert_eq!(cpu.pc, 1);
         assert_eq!(cpu.l, 6);
+        assert_eq!(mmu.read_byte(5), 42);
+    }
+
+    #[test]
+    fn test_ld_ind_de_a() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.a = 42;
+        cpu.e = 5;
+        mmu.write_slice(&[0x12], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.pc, 1);
         assert_eq!(mmu.read_byte(5), 42);
     }
 
