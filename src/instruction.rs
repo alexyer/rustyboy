@@ -86,6 +86,7 @@ impl Instruction {
     impl_instruction_constructor!(ld_e_d8, Opcode::LdED8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_l_d8, Opcode::LdLD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_a_e, Opcode::LdAE, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ld_a_l, Opcode::LdAL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_b_a, Opcode::LdBA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_c_a, Opcode::LdCA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_d_a, Opcode::LdDA, None::<PrefixedOpcode>);
@@ -110,6 +111,7 @@ impl Instruction {
     impl_instruction_constructor!(dec_a, Opcode::DecA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_b, Opcode::DecB, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_c, Opcode::DecC, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(dec_d, Opcode::DecD, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_e, Opcode::DecE, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_de, Opcode::DecDE, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_a_b, Opcode::AddAB, None::<PrefixedOpcode>);
@@ -150,6 +152,7 @@ pub enum Opcode {
     LdED8,
     LdLD8,
     LdAE,
+    LdAL,
     LdBA,
     LdCA,
     LdDA,
@@ -184,6 +187,7 @@ pub enum Opcode {
     DecA,
     DecB,
     DecC,
+    DecD,
     DecE,
     DecDE,
     XorA,
@@ -207,6 +211,7 @@ impl Opcode {
             Opcode::LdED8 => 1,
             Opcode::LdLD8 => 1,
             Opcode::LdAE => 0,
+            Opcode::LdAL => 0,
             Opcode::LdBA => 0,
             Opcode::LdCA => 0,
             Opcode::LdDA => 0,
@@ -232,6 +237,7 @@ impl Opcode {
             Opcode::DecA => 0,
             Opcode::DecB => 0,
             Opcode::DecC => 0,
+            Opcode::DecD => 0,
             Opcode::DecE => 0,
             Opcode::DecDE => 0,
             Opcode::XorA => 0,
@@ -264,6 +270,7 @@ impl Opcode {
             Opcode::LdED8 => 8,
             Opcode::LdLD8 => 8,
             Opcode::LdAE => 4,
+            Opcode::LdAL => 4,
             Opcode::LdBA => 4,
             Opcode::LdCA => 4,
             Opcode::LdDA => 4,
@@ -288,6 +295,7 @@ impl Opcode {
             Opcode::DecA => 4,
             Opcode::DecB => 4,
             Opcode::DecC => 4,
+            Opcode::DecD => 4,
             Opcode::DecE => 4,
             Opcode::DecDE => 8,
             Opcode::XorA => 4,
@@ -319,6 +327,7 @@ impl TryFrom<&u8> for Opcode {
             0x0e => Ok(Opcode::LdCD8),
             0x11 => Ok(Opcode::LdDeD16),
             0x13 => Ok(Opcode::IncDE),
+            0x15 => Ok(Opcode::DecD),
             0x16 => Ok(Opcode::LdDD8),
             0x17 => Ok(Opcode::RlA),
             0x18 => Ok(Opcode::JrR8),
@@ -344,6 +353,7 @@ impl TryFrom<&u8> for Opcode {
             0x67 => Ok(Opcode::LdHA),
             0x7b => Ok(Opcode::LdAE),
             0x77 => Ok(Opcode::LdIndHLA),
+            0x7d => Ok(Opcode::LdAL),
             0x80 => Ok(Opcode::AddAB),
             0xaf => Ok(Opcode::XorA),
             0xc1 => Ok(Opcode::PopBC),

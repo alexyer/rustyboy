@@ -234,6 +234,7 @@ impl Cpu {
                     Opcode::LdED8 => self.ld_e_d8(&prepare_data!(instruction, 1)),
                     Opcode::LdLD8 => self.ld_l_d8(&prepare_data!(instruction, 1)),
                     Opcode::LdAE => self.ld_a_e(),
+                    Opcode::LdAL => self.ld_a_l(),
                     Opcode::LdBA => self.ld_b_a(),
                     Opcode::LdCA => self.ld_c_a(),
                     Opcode::LdDA => self.ld_d_a(),
@@ -253,6 +254,7 @@ impl Cpu {
                     Opcode::DecA => self.dec_a(),
                     Opcode::DecB => self.dec_b(),
                     Opcode::DecC => self.dec_c(),
+                    Opcode::DecD => self.dec_d(),
                     Opcode::DecE => self.dec_e(),
                     Opcode::DecDE => self.dec_de(),
                     Opcode::XorA => self.xor_a(),
@@ -355,6 +357,7 @@ impl Cpu {
                 Some(Instruction::ldh_a8_a(data))
             }
             Opcode::LdAE => Some(Instruction::ld_a_e(&[])),
+            Opcode::LdAL => Some(Instruction::ld_a_l(&[])),
             Opcode::LdBA => Some(Instruction::ld_b_a(&[])),
             Opcode::LdCA => Some(Instruction::ld_c_a(&[])),
             Opcode::LdDA => Some(Instruction::ld_d_a(&[])),
@@ -371,6 +374,7 @@ impl Cpu {
             Opcode::DecA => Some(Instruction::dec_a(&[])),
             Opcode::DecB => Some(Instruction::dec_b(&[])),
             Opcode::DecC => Some(Instruction::dec_c(&[])),
+            Opcode::DecD => Some(Instruction::dec_d(&[])),
             Opcode::DecE => Some(Instruction::dec_e(&[])),
             Opcode::DecDE => Some(Instruction::dec_de(&[])),
             Opcode::XorA => Some(Instruction::xor_a(&[])),
@@ -524,6 +528,7 @@ impl Cpu {
     ld_r_d8!(l, ld_l_d8);
 
     ld_r_r!(a, e, ld_a_e);
+    ld_r_r!(a, l, ld_a_l);
     ld_r_r!(b, a, ld_b_a);
     ld_r_r!(c, a, ld_c_a);
     ld_r_r!(d, a, ld_d_a);
@@ -588,6 +593,7 @@ impl Cpu {
     dec_r!(a, dec_a);
     dec_r!(b, dec_b);
     dec_r!(c, dec_c);
+    dec_r!(d, dec_d);
     dec_r!(e, dec_e);
     dec_rr!(e, d, dec_de);
     dec_rr!(l, h, dec_hl);
@@ -849,6 +855,21 @@ mod tests {
         assert_eq!(cycles, 8);
         assert_eq!(cpu.pc, 2);
         assert_eq!(cpu.b, 0xff);
+    }
+
+    #[test]
+    fn test_ld_a_l() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.l = 42;
+        cpu.a = 0;
+        mmu.write_slice(&[0x7d], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 4);
+        assert_eq!(cpu.pc, 1);
+        assert_eq!(cpu.a, 42);
     }
 
     #[test]
@@ -1190,6 +1211,21 @@ mod tests {
 
         assert_eq!(cycles, 4);
         assert_eq!(cpu.c, 42);
+        assert!(!cpu.h());
+        assert!(cpu.n());
+    }
+
+    #[test]
+    fn test_dec_d() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.d = 43;
+        mmu.write_slice(&[0x15], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 4);
+        assert_eq!(cpu.d, 42);
         assert!(!cpu.h());
         assert!(cpu.n());
     }
