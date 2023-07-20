@@ -135,6 +135,10 @@ impl Mmu {
     }
 
     fn io_write_byte(&mut self, addr: usize, data: u8) {
+        // TODO(alexyer): Remove later. Currently it's used to log test rom output.
+        if addr == 0x01 || addr == 0x02 {
+            print!("{}", data as char);
+        }
         self.io[addr] = data
     }
 

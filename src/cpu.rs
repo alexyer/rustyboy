@@ -91,10 +91,9 @@ macro_rules! push_rr {
     ($hh:ident, $ll:ident, $name:ident) => {
         fn $name(&mut self, mmu: &mut Mmu) {
             self.sp -= 1;
-
             mmu.write_byte(self.sp as usize, self.$hh);
-            self.sp -= 1;
 
+            self.sp -= 1;
             mmu.write_byte(self.sp as usize, self.$ll);
         }
     };
@@ -701,10 +700,10 @@ impl Cpu {
         }
     }
 
-    impl_flag!(set_z, clear_z, set_z_to, z, 6);
-    impl_flag!(set_n, clear_n, set_n_to, n, 5);
-    impl_flag!(set_h, clear_h, set_h_to, h, 4);
-    impl_flag!(set_c, clear_c, set_c_to, c, 3);
+    impl_flag!(set_z, clear_z, set_z_to, z, 7);
+    impl_flag!(set_n, clear_n, set_n_to, n, 6);
+    impl_flag!(set_h, clear_h, set_h_to, h, 5);
+    impl_flag!(set_c, clear_c, set_c_to, c, 4);
 
     fn hl(&self) -> u16 {
         little_endian!(self.l, self.h)
@@ -781,7 +780,15 @@ impl Cpu {
     push_rr!(d, e, push_de);
     push_rr!(h, l, push_hl);
 
-    pop_rr!(a, f, pop_af);
+    // Special case. Since lower bits in flags register always zero.
+    fn pop_af(&mut self, mmu: &Mmu) {
+        self.f = mmu.read_byte(self.sp as usize) & 0b11110000;
+        self.sp += 1;
+
+        self.a = mmu.read_byte(self.sp as usize);
+        self.sp += 1;
+    }
+
     pop_rr!(b, c, pop_bc);
     pop_rr!(d, e, pop_de);
     pop_rr!(h, l, pop_hl);
@@ -1488,7 +1495,22 @@ mod tests {
         assert_eq!(cpu.pc, 5);
         assert_eq!(cpu.sp, 3);
     }
-    test_pop_rr!(a, f, &[0xf1, 0xfe, 0xff], test_pop_af);
+
+    #[test]
+    fn test_pop_af() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        mmu.write_slice(&[0xf1, 0xfe, 0xff], 0);
+        cpu.sp = 1;
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 12);
+        assert_eq!(cpu.pc, 1);
+        assert_eq!(cpu.sp, 3);
+        assert_eq!(cpu.a, 0xff);
+        assert_eq!(cpu.f, 0xf0);
+    }
     test_pop_rr!(b, c, &[0xc1, 0xfe, 0xff], test_pop_bc);
     test_pop_rr!(d, e, &[0xd1, 0xfe, 0xff], test_pop_de);
     test_pop_rr!(h, l, &[0xe1, 0xfe, 0xff], test_pop_hl);
@@ -2285,5 +2307,26 @@ mod tests {
 
         assert_eq!(cycles, 4);
         assert_eq!(cpu.pc, 0x0a05);
+    }
+
+    #[test]
+    fn test_integration_pop_af() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+
+        mmu.write_slice(
+            &[
+                0x01, 0x00, 0x12, 0xc5, 0xf1, 0xf5, 0xd1, 0x79, 0xe6, 0xf0, 0xbb, 0xc2, 0xad, 0xde,
+            ],
+            0,
+        );
+        cpu.sp = 0xff;
+
+        for _ in 0..9 {
+            cpu.exec_instruction(&mut mmu);
+        }
+
+        assert_ne!(cpu.pc, 0xdead);
+        assert_eq!(cpu.a, cpu.e);
     }
 }
