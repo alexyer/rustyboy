@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{
     errors::InstructionError,
     instruction::{Instruction, Opcode, PrefixedOpcode},
-    mmu::{Mmu, INT_ENABLE_ADDRESS},
+    mmu::{Mmu, INT_ENABLE_ADDRESS, INT_FLAG_ADDRESS},
 };
 
 macro_rules! prepare_data {
@@ -244,6 +244,7 @@ pub struct Cpu {
     h: u8,
     l: u8,
 
+    // TODO(alexyer): is it needed or just check mem(INT_ENABLE_ADDRESS)???
     interrupts_enabled: bool,
 }
 
@@ -274,10 +275,69 @@ impl Cpu {
         self.exec_instruction(mmu)
     }
 
-    fn handle_interrupts(&mut self, _mmu: &mut Mmu) {
-        if self.interrupts_enabled {
-            todo!()
+    fn handle_interrupts(&mut self, mmu: &mut Mmu) {
+        if !self.interrupts_enabled {
+            return;
         }
+
+        let int_flag = mmu.read_byte(INT_FLAG_ADDRESS);
+        let int_enabled = mmu.read_byte(INT_ENABLE_ADDRESS);
+
+        let fired_interrupts = int_flag & int_enabled;
+
+        if fired_interrupts == 0 {
+            return;
+        }
+
+        let mut handled_interrupt;
+
+        handled_interrupt = self.handle_interrupt(0, 0x40, fired_interrupts, mmu);
+
+        if handled_interrupt {
+            return;
+        }
+
+        handled_interrupt = self.handle_interrupt(1, 0x48, fired_interrupts, mmu);
+
+        if handled_interrupt {
+            return;
+        }
+
+        handled_interrupt = self.handle_interrupt(2, 0x50, fired_interrupts, mmu);
+
+        if handled_interrupt {
+            return;
+        }
+
+        handled_interrupt = self.handle_interrupt(3, 0x58, fired_interrupts, mmu);
+
+        if handled_interrupt {
+            return;
+        }
+
+        handled_interrupt = self.handle_interrupt(4, 0x60, fired_interrupts, mmu);
+
+        if handled_interrupt {
+            return;
+        }
+    }
+
+    fn handle_interrupt(
+        &mut self,
+        interrupt_bit: u8,
+        interrupt_vector: u16,
+        fired_interrupts: u8,
+        mmu: &mut Mmu,
+    ) -> bool {
+        if fired_interrupts & 1 << interrupt_bit == 0 {
+            return false;
+        }
+
+        mmu.set_bit_to(INT_FLAG_ADDRESS, interrupt_bit as usize, false);
+        self.pc = interrupt_vector;
+        self.interrupts_enabled = false;
+
+        true
     }
 
     /// Execute the next instruction and return the number of T-states.
@@ -286,7 +346,8 @@ impl Cpu {
             Some(instruction) => {
                 match instruction.opcode() {
                     Opcode::Nop => (),
-                    Opcode::Di => self.di(mmu),
+                    Opcode::Di => self.di(),
+                    Opcode::Ei => self.ei(),
                     Opcode::LdBCD16 => self.ld_bc_d16(&prepare_data!(instruction, 2)),
                     Opcode::LdDED16 => self.ld_de_d16(&prepare_data!(instruction, 2)),
                     Opcode::LdSPD16 => self.ld_sp_d16(&prepare_data!(instruction, 2)),
@@ -298,6 +359,7 @@ impl Cpu {
                     Opcode::LdED8 => self.ld_e_d8(&prepare_data!(instruction, 1)),
                     Opcode::LdHD8 => self.ld_h_d8(&prepare_data!(instruction, 1)),
                     Opcode::LdLD8 => self.ld_l_d8(&prepare_data!(instruction, 1)),
+                    Opcode::LdHLSPE8 => self.ld_hl_sp_e8(&prepare_data!(instruction, 1)),
                     Opcode::LdAB => self.ld_a_b(),
                     Opcode::LdAC => self.ld_a_c(),
                     Opcode::LdAD => self.ld_a_d(),
@@ -490,6 +552,12 @@ impl Cpu {
                 self.pc += 1;
 
                 Some(Instruction::ldh_a8_a(data))
+            }
+            Opcode::LdHLSPE8 => {
+                let data = &[mmu.read_byte(self.pc as usize)];
+                self.pc += 1;
+
+                Some(Instruction::ld_hl_sp_e8(data))
             }
             Opcode::LdAB => Some(Instruction::ld_a_b(&[])),
             Opcode::LdAC => Some(Instruction::ld_a_c(&[])),
@@ -705,6 +773,7 @@ impl Cpu {
                 }
             }
             Opcode::Di => Some(Instruction::di(&[])),
+            Opcode::Ei => Some(Instruction::ei(&[])),
         }
     }
 
@@ -779,8 +848,12 @@ impl Cpu {
         }
     }
 
-    fn di(&self, mmu: &mut Mmu) {
-        mmu.write_byte(INT_ENABLE_ADDRESS, 0);
+    fn di(&mut self) {
+        self.interrupts_enabled = false;
+    }
+
+    fn ei(&mut self) {
+        self.interrupts_enabled = true;
     }
 
     fn cpl(&mut self) {
@@ -880,6 +953,22 @@ impl Cpu {
     fn ld_a16_a(&self, data: &[u8; 2], mmu: &mut Mmu) {
         let addr = u16::from_le_bytes(*data);
         mmu.write_byte(addr as usize, self.a);
+    }
+
+    fn ld_hl_sp_e8(&mut self, data: &[u8; 1]) {
+        let e8: i8 = unsafe { std::mem::transmute(data[0]) };
+
+        let val = if e8 >= 0 {
+            self.sp.wrapping_add(e8 as u16)
+        } else {
+            self.sp.wrapping_add(e8 as u16)
+        };
+
+        self.h = ((val & 0xff00) >> 8) as u8;
+        self.l = (val & 0x00ff) as u8;
+
+        self.set_h_to(((self.sp ^ e8 as u16 ^ (val & 0xffff)) & 0x10) == 0x10);
+        self.set_c_to(((self.sp ^ e8 as u16 ^ (val & 0xffff)) & 0x100) == 0x100);
     }
 
     fn and_a_d8(&mut self, data: &[u8; 1]) {
@@ -1450,7 +1539,20 @@ mod tests {
 
         assert_eq!(cycles, 4);
         assert_eq!(cpu.pc, 1);
-        assert_eq!(mmu.read_byte(INT_ENABLE_ADDRESS), 0);
+        assert!(!cpu.interrupts_enabled);
+    }
+
+    #[test]
+    fn test_ei() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        mmu.write_slice(&[0xfb], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 4);
+        assert_eq!(cpu.pc, 1);
+        assert!(cpu.interrupts_enabled);
     }
 
     test_push_rr!(a, f, &[0xf5], test_push_af);
@@ -1580,6 +1682,20 @@ mod tests {
         assert_eq!(cycles, 12);
         assert_eq!(cpu.pc, 3);
         assert_eq!(cpu.sp, 0xfffe);
+    }
+
+    #[test]
+    fn test_ld_hl_sp_e8() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.sp = 0xdead;
+        mmu.write_slice(&[0xf8, 0xfe], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 12);
+        assert_eq!(cpu.pc, 2);
+        assert_eq!(cpu.hl(), 0xdeab);
     }
 
     test_ld_rr_d16!(c, b, &[0x01, 0xfe, 0xff], test_ld_bc_d16);

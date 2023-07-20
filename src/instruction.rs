@@ -126,6 +126,7 @@ impl Instruction {
     impl_instruction_constructor!(ld_ind_hl_inc_a, Opcode::LdIndHLIncA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_a_ind_hl_inc, Opcode::LdAIndHLInc, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_ind_c_a, Opcode::LdIndCA, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ld_hl_sp_e8, Opcode::LdHLSPE8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_a, Opcode::IncA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_b, Opcode::IncB, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_c, Opcode::IncC, None::<PrefixedOpcode>);
@@ -177,6 +178,7 @@ impl Instruction {
     impl_instruction_constructor!(call_a16, Opcode::CallA16, None::<PrefixedOpcode>);
     impl_instruction_constructor!(call_nz_a16, Opcode::CallNzA16, None::<PrefixedOpcode>);
     impl_instruction_constructor!(di, Opcode::Di, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ei, Opcode::Ei, None::<PrefixedOpcode>);
     impl_instruction_constructor!(bit0d, Opcode::Prefix, Some(PrefixedOpcode::Bit0D));
     impl_instruction_constructor!(bit7h, Opcode::Prefix, Some(PrefixedOpcode::Bit7H));
     impl_instruction_constructor!(rl_c, Opcode::Prefix, Some(PrefixedOpcode::RlC));
@@ -199,6 +201,7 @@ pub enum Opcode {
     Nop,
     Prefix,
     Di,
+    Ei,
 
     // Jumps / Calls
     JrR8,
@@ -254,6 +257,7 @@ pub enum Opcode {
     LdIndHLDecA,
     LdIndHLIncA,
     LdIndCA,
+    LdHLSPE8,
     PushAF,
     PushBC,
     PushDE,
@@ -323,6 +327,7 @@ impl Opcode {
             Opcode::Nop => 0,
             Opcode::Prefix => 0,
             Opcode::Di => 0,
+            Opcode::Ei => 0,
             Opcode::JrR8 => 1,
             Opcode::JrNcR8 => 1,
             Opcode::JrNzR8 => 1,
@@ -379,6 +384,7 @@ impl Opcode {
             Opcode::LdDED16 => 2,
             Opcode::LdSPD16 => 2,
             Opcode::LdHLD16 => 2,
+            Opcode::LdHLSPE8 => 1,
             Opcode::IncA => 0,
             Opcode::IncB => 0,
             Opcode::IncC => 0,
@@ -439,6 +445,7 @@ impl Opcode {
             Opcode::Nop => 4,
             Opcode::Prefix => 4,
             Opcode::Di => 4,
+            Opcode::Ei => 4,
             Opcode::JrR8 => 12,
             Opcode::JrCR8 => 12,
             // FIXME(alexyer): Dynamic cycles
@@ -486,6 +493,7 @@ impl Opcode {
             Opcode::LdIndHLD => 8,
             Opcode::LdIndHLDecA => 8,
             Opcode::LdIndHLIncA => 8,
+            Opcode::LdHLSPE8 => 12,
             Opcode::LdBCD16 => 12,
             Opcode::LdAA16 => 16,
             Opcode::LdDED16 => 12,
@@ -678,7 +686,9 @@ impl TryFrom<&u8> for Opcode {
             0xf1 => Ok(Opcode::PopAF),
             0xf3 => Ok(Opcode::Di),
             0xf5 => Ok(Opcode::PushAF),
+            0xf8 => Ok(Opcode::LdHLSPE8),
             0xfa => Ok(Opcode::LdAA16),
+            0xfb => Ok(Opcode::Ei),
             0xfe => Ok(Opcode::CpD8),
 
             0xee => Ok(Opcode::XorAD8),
