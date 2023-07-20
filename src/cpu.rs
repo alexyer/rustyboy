@@ -332,6 +332,7 @@ impl Cpu {
                     Opcode::IncHL => self.inc_hl(),
                     Opcode::IncH => self.inc_h(),
                     Opcode::IncL => self.inc_l(),
+                    Opcode::Daa => self.daa(),
                     Opcode::DecA => self.dec_a(),
                     Opcode::DecB => self.dec_b(),
                     Opcode::DecC => self.dec_c(),
@@ -390,6 +391,8 @@ impl Cpu {
                     Opcode::RetZ => self.ret_z(mmu),
                     Opcode::RlA => self.rl_a(),
                     Opcode::RrA => self.rr_a(),
+                    Opcode::Cpl => self.cpl(),
+                    Opcode::Scf => self.scf(),
                     Opcode::LdA16A => self.ld_a16_a(&prepare_data!(instruction, 2), mmu),
                     Opcode::Prefix => match instruction.prefixed_opcode().unwrap() {
                         PrefixedOpcode::Bit0D => self.bit0d(),
@@ -398,6 +401,7 @@ impl Cpu {
                         PrefixedOpcode::RrC => self.rr_c(),
                         PrefixedOpcode::RrD => self.rr_d(),
                         PrefixedOpcode::SrlB => self.srl_b(),
+                        PrefixedOpcode::SwapA => self.swap_a(),
                     },
                 };
 
@@ -518,6 +522,7 @@ impl Cpu {
             Opcode::IncHL => Some(Instruction::inc_hl(&[])),
             Opcode::IncH => Some(Instruction::inc_h(&[])),
             Opcode::IncL => Some(Instruction::inc_l(&[])),
+            Opcode::Daa => Some(Instruction::daa(&[])),
             Opcode::DecA => Some(Instruction::dec_a(&[])),
             Opcode::DecB => Some(Instruction::dec_b(&[])),
             Opcode::DecC => Some(Instruction::dec_c(&[])),
@@ -669,6 +674,8 @@ impl Cpu {
             Opcode::RetZ => Some(Instruction::ret_z(&[])),
             Opcode::RlA => Some(Instruction::rl_a(&[])),
             Opcode::RrA => Some(Instruction::rr_a(&[])),
+            Opcode::Cpl => Some(Instruction::cpl(&[])),
+            Opcode::Scf => Some(Instruction::scf(&[])),
             Opcode::LdA16A => {
                 let data = mmu.read_slice(self.pc as usize, 2);
                 self.pc += 2;
@@ -694,6 +701,7 @@ impl Cpu {
                     PrefixedOpcode::RrC => Some(Instruction::rr_c(&[])),
                     PrefixedOpcode::RrD => Some(Instruction::rr_d(&[])),
                     PrefixedOpcode::SrlB => Some(Instruction::srl_b(&[])),
+                    PrefixedOpcode::SwapA => Some(Instruction::swap_a(&[])),
                 }
             }
             Opcode::Di => Some(Instruction::di(&[])),
@@ -773,6 +781,43 @@ impl Cpu {
 
     fn di(&self, mmu: &mut Mmu) {
         mmu.write_byte(INT_ENABLE_ADDRESS, 0);
+    }
+
+    fn cpl(&mut self) {
+        self.a = !self.a;
+
+        self.set_n();
+        self.set_h();
+    }
+
+    fn scf(&mut self) {
+        self.clear_n();
+        self.clear_h();
+        self.set_c();
+    }
+
+    fn daa(&mut self) {
+        if !self.n() {
+            if self.c() || self.a > 0x99 {
+                self.a = self.a.wrapping_add(0x60);
+                self.set_c();
+            }
+
+            if self.h() || (self.a & 0x0f) > 0x09 {
+                self.a = self.a.wrapping_add(0x6);
+            }
+        } else {
+            if self.c() {
+                self.a = self.a.wrapping_sub(0x60);
+            }
+
+            if self.h() {
+                self.a = self.a.wrapping_sub(0x6);
+            }
+        }
+
+        self.check_z(self.a);
+        self.clear_h();
     }
 
     push_rr!(a, f, push_af);
@@ -1062,6 +1107,15 @@ impl Cpu {
         self.clear_h();
         self.check_z(res);
         self.set_c_to(c);
+    }
+
+    fn swap_a(&mut self) {
+        self.a = (self.a << 4) | (self.a >> 4);
+
+        self.check_z(self.a);
+        self.clear_c();
+        self.clear_h();
+        self.clear_n();
     }
 
     fn jr_nc_r8(&mut self, data: &[u8; 1]) {
@@ -2161,6 +2215,24 @@ mod tests {
     }
 
     #[test]
+    fn test_swap_a() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.a = 0xab;
+        mmu.write_slice(&[0xcb, 0x37], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 12);
+        assert_eq!(cpu.pc, 2);
+        assert!(!cpu.z());
+        assert!(!cpu.n());
+        assert!(!cpu.h());
+        assert!(!cpu.c());
+        assert_eq!(cpu.a, 0xba);
+    }
+
+    #[test]
     fn test_rl_a() {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
@@ -2307,6 +2379,34 @@ mod tests {
 
         assert_eq!(cycles, 4);
         assert_eq!(cpu.pc, 0x0a05);
+    }
+
+    #[test]
+    fn test_cpl() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.a = 0xaa;
+
+        mmu.write_slice(&[0x2f], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 4);
+        assert_eq!(cpu.a, 0x55);
+    }
+
+    #[test]
+    fn test_scf() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.clear_c();
+
+        mmu.write_slice(&[0x37], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 4);
+        assert!(cpu.c());
     }
 
     #[test]

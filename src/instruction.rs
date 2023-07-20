@@ -136,6 +136,7 @@ impl Instruction {
     impl_instruction_constructor!(inc_hl, Opcode::IncHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_h, Opcode::IncH, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_l, Opcode::IncL, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(daa, Opcode::Daa, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_a, Opcode::DecA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_b, Opcode::DecB, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_c, Opcode::DecC, None::<PrefixedOpcode>);
@@ -163,6 +164,8 @@ impl Instruction {
     impl_instruction_constructor!(cp_a_e, Opcode::CpAE, None::<PrefixedOpcode>);
     impl_instruction_constructor!(cp_d8, Opcode::CpD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(cp_a_ind_hl, Opcode::CpAIndHL, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(cpl, Opcode::Cpl, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(scf, Opcode::Scf, None::<PrefixedOpcode>);
     impl_instruction_constructor!(jr_r8, Opcode::JrR8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(jr_c_r8, Opcode::JrCR8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(jr_nc_r8, Opcode::JrNcR8, None::<PrefixedOpcode>);
@@ -180,6 +183,7 @@ impl Instruction {
     impl_instruction_constructor!(rr_c, Opcode::Prefix, Some(PrefixedOpcode::RrC));
     impl_instruction_constructor!(rr_d, Opcode::Prefix, Some(PrefixedOpcode::RrD));
     impl_instruction_constructor!(srl_b, Opcode::Prefix, Some(PrefixedOpcode::SrlB));
+    impl_instruction_constructor!(swap_a, Opcode::Prefix, Some(PrefixedOpcode::SwapA));
     impl_instruction_constructor!(rl_a, Opcode::RlA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(rr_a, Opcode::RrA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ret, Opcode::Ret, None::<PrefixedOpcode>);
@@ -286,6 +290,7 @@ pub enum Opcode {
     IncHL,
     IncH,
     IncL,
+    Daa,
     DecA,
     DecB,
     DecC,
@@ -305,6 +310,8 @@ pub enum Opcode {
     CpAE,
     CpD8,
     CpAIndHL,
+    Cpl,
+    Scf,
     RlA,
     RrA,
 }
@@ -382,6 +389,7 @@ impl Opcode {
             Opcode::IncHL => 0,
             Opcode::IncH => 0,
             Opcode::IncL => 0,
+            Opcode::Daa => 0,
             Opcode::DecA => 0,
             Opcode::DecB => 0,
             Opcode::DecC => 0,
@@ -410,6 +418,8 @@ impl Opcode {
             Opcode::CpAE => 0,
             Opcode::CpD8 => 1,
             Opcode::CpAIndHL => 0,
+            Opcode::Cpl => 0,
+            Opcode::Scf => 0,
             Opcode::CallA16 => 2,
             Opcode::CallNzA16 => 2,
             Opcode::RlA => 0,
@@ -491,6 +501,7 @@ impl Opcode {
             Opcode::IncHL => 8,
             Opcode::IncH => 4,
             Opcode::IncL => 4,
+            Opcode::Daa => 4,
             Opcode::DecA => 4,
             Opcode::DecB => 4,
             Opcode::DecC => 4,
@@ -524,6 +535,8 @@ impl Opcode {
             Opcode::SubAB => 4,
             Opcode::CpAE => 4,
             Opcode::CpD8 => 8,
+            Opcode::Cpl => 4,
+            Opcode::Scf => 4,
             Opcode::CpAIndHL => 8,
             Opcode::CallA16 => 24,
             Opcode::CallNzA16 => 24,
@@ -576,17 +589,20 @@ impl TryFrom<&u8> for Opcode {
             0x24 => Ok(Opcode::IncH),
             0x25 => Ok(Opcode::DecH),
             0x26 => Ok(Opcode::LdHD8),
+            0x27 => Ok(Opcode::Daa),
             0x28 => Ok(Opcode::JrZR8),
             0x29 => Ok(Opcode::AddHLHL),
             0x2a => Ok(Opcode::LdAIndHLInc),
             0x2c => Ok(Opcode::IncL),
             0x2d => Ok(Opcode::DecL),
             0x2e => Ok(Opcode::LdLD8),
+            0x2f => Ok(Opcode::Cpl),
 
             0x30 => Ok(Opcode::JrNcR8),
             0x31 => Ok(Opcode::LdSPD16),
             0x32 => Ok(Opcode::LdIndHLDecA),
             0x35 => Ok(Opcode::DecIndHL),
+            0x37 => Ok(Opcode::Scf),
             0x38 => Ok(Opcode::JrCR8),
             0x3c => Ok(Opcode::IncA),
             0x3d => Ok(Opcode::DecA),
@@ -679,6 +695,7 @@ pub enum PrefixedOpcode {
     RrC,
     RrD,
     SrlB,
+    SwapA,
 }
 
 impl PrefixedOpcode {
@@ -690,6 +707,7 @@ impl PrefixedOpcode {
             PrefixedOpcode::RrC => 0,
             PrefixedOpcode::RrD => 0,
             PrefixedOpcode::SrlB => 0,
+            PrefixedOpcode::SwapA => 0,
         }
     }
 
@@ -701,6 +719,7 @@ impl PrefixedOpcode {
             PrefixedOpcode::RrC => 8,
             PrefixedOpcode::RrD => 8,
             PrefixedOpcode::SrlB => 8,
+            PrefixedOpcode::SwapA => 8,
         }
     }
 }
@@ -712,9 +731,14 @@ impl TryFrom<&u8> for PrefixedOpcode {
             0x11 => Ok(PrefixedOpcode::RlC),
             0x19 => Ok(PrefixedOpcode::RrC),
             0x1a => Ok(PrefixedOpcode::RrD),
+
+            0x37 => Ok(PrefixedOpcode::SwapA),
             0x38 => Ok(PrefixedOpcode::SrlB),
+
             0x42 => Ok(PrefixedOpcode::Bit0D),
+
             0x7c => Ok(PrefixedOpcode::Bit7H),
+
             _ => Err(InstructionError::UnrecognizedPrefixedOpcode(*value)),
         }
     }
