@@ -114,5 +114,3 @@ pub fn load_cartridge(rom: &[u8]) -> Box<dyn Cartridge> {
         CartridgeType::Mbc1 => Box::new(Mbc1::new(rom)),
     }
 }
-
-// pub fn empty_cartridge() -> Bo

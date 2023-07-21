@@ -99,15 +99,21 @@ impl Instruction {
     impl_instruction_constructor!(ld_d_a, Opcode::LdDA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_d_l, Opcode::LdDL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_e_a, Opcode::LdEA, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ld_e_l, Opcode::LdEL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_h_a, Opcode::LdHA, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ld_h_d, Opcode::LdHD, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_l_a, Opcode::LdLA, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ld_l_e, Opcode::LdLE, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ldh_a_a8, Opcode::LdhAA8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ldh_a8_a, Opcode::LdhA8A, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ld_a_ind_c, Opcode::LdAIndC, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ldh_a_ind_de, Opcode::LdAIndDE, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ldh_a_ind_hl, Opcode::LdAIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ldh_b_ind_hl, Opcode::LdBIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ldh_c_ind_hl, Opcode::LdCIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ldh_d_ind_hl, Opcode::LdDIndHL, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ldh_e_ind_hl, Opcode::LdEIndHL, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ldh_h_ind_hl, Opcode::LdHIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ldh_l_ind_hl, Opcode::LdLIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(push_af, Opcode::PushAF, None::<PrefixedOpcode>);
     impl_instruction_constructor!(push_bc, Opcode::PushBC, None::<PrefixedOpcode>);
@@ -122,6 +128,7 @@ impl Instruction {
     impl_instruction_constructor!(ld_ind_hl_b, Opcode::LdIndHLB, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_ind_hl_c, Opcode::LdIndHLC, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_ind_hl_d, Opcode::LdIndHLD, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ld_ind_hl_e, Opcode::LdIndHLE, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_ind_hl_dec_a, Opcode::LdIndHLDecA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_ind_hl_inc_a, Opcode::LdIndHLIncA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_a_ind_hl_inc, Opcode::LdAIndHLInc, None::<PrefixedOpcode>);
@@ -136,6 +143,7 @@ impl Instruction {
     impl_instruction_constructor!(inc_bc, Opcode::IncBC, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_de, Opcode::IncDE, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_hl, Opcode::IncHL, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(inc_sp, Opcode::IncSP, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_h, Opcode::IncH, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_l, Opcode::IncL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(daa, Opcode::Daa, None::<PrefixedOpcode>);
@@ -147,20 +155,25 @@ impl Instruction {
     impl_instruction_constructor!(dec_h, Opcode::DecH, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_l, Opcode::DecL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_de, Opcode::DecDE, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(dec_sp, Opcode::DecSP, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_ind_hl, Opcode::DecIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(adc_a_d8, Opcode::AdcAD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_a_b, Opcode::AddAB, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_a_d8, Opcode::AddAD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_hl_hl, Opcode::AddHLHL, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(add_hl_sp, Opcode::AddHLSP, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(add_sp_e8, Opcode::AddSPE8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_a_ind_hl, Opcode::AddAIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(and_a_d8, Opcode::AndAD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(sub_d8, Opcode::SubD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(sub_a_b, Opcode::SubAB, None::<PrefixedOpcode>);
     impl_instruction_constructor!(or_a, Opcode::OrA, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(or_b, Opcode::OrB, None::<PrefixedOpcode>);
     impl_instruction_constructor!(or_a_ind_hl, Opcode::OrAIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(or_c, Opcode::OrC, None::<PrefixedOpcode>);
     impl_instruction_constructor!(xor_a, Opcode::XorA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(xor_a_c, Opcode::XorAC, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(xor_a_l, Opcode::XorAL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(xor_a_d8, Opcode::XorAD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(xor_a_ind_hl, Opcode::XorAIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(cp_a_e, Opcode::CpAE, None::<PrefixedOpcode>);
@@ -185,6 +198,7 @@ impl Instruction {
     impl_instruction_constructor!(rl_c, Opcode::Prefix, Some(PrefixedOpcode::RlC));
     impl_instruction_constructor!(rr_c, Opcode::Prefix, Some(PrefixedOpcode::RrC));
     impl_instruction_constructor!(rr_d, Opcode::Prefix, Some(PrefixedOpcode::RrD));
+    impl_instruction_constructor!(rr_e, Opcode::Prefix, Some(PrefixedOpcode::RrE));
     impl_instruction_constructor!(srl_b, Opcode::Prefix, Some(PrefixedOpcode::SrlB));
     impl_instruction_constructor!(swap_a, Opcode::Prefix, Some(PrefixedOpcode::SwapA));
     impl_instruction_constructor!(rl_a, Opcode::RlA, None::<PrefixedOpcode>);
@@ -194,6 +208,7 @@ impl Instruction {
     impl_instruction_constructor!(ret_nc, Opcode::RetNc, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ret_z, Opcode::RetZ, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_a16_a, Opcode::LdA16A, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ld_a16_sp, Opcode::LdA16SP, None::<PrefixedOpcode>);
 }
 
 #[derive(Debug)]
@@ -239,21 +254,28 @@ pub enum Opcode {
     LdDA,
     LdDL,
     LdEA,
+    LdEL,
     LdHA,
+    LdHD,
     LdLA,
+    LdLE,
     LdhA8A,
     LdhAA8,
+    LdAIndC,
     LdAIndDE,
     LdAIndHL,
     LdBIndHL,
     LdCIndHL,
     LdDIndHL,
+    LdEIndHL,
+    LdHIndHL,
     LdLIndHL,
     LdIndDEA,
     LdIndHLA,
     LdIndHLB,
     LdIndHLC,
     LdIndHLD,
+    LdIndHLE,
     LdAIndHLInc,
     LdIndHLDecA,
     LdIndHLIncA,
@@ -276,6 +298,7 @@ pub enum Opcode {
     LdHLSPE8,
     LdSPD16,
     LdSPHL,
+    LdA16SP,
 
     // 8-bit arithmetic and logical instructions
     AdcAD8,
@@ -283,6 +306,8 @@ pub enum Opcode {
     AddAIndHL,
     AddAD8,
     AddHLHL,
+    AddHLSP,
+    AddSPE8,
     AndAD8,
     SubD8,
     SubAB,
@@ -294,6 +319,7 @@ pub enum Opcode {
     IncBC,
     IncDE,
     IncHL,
+    IncSP,
     IncH,
     IncL,
     Daa,
@@ -305,12 +331,15 @@ pub enum Opcode {
     DecH,
     DecL,
     DecDE,
+    DecSP,
     DecIndHL,
     OrA,
     OrAIndHL,
+    OrB,
     OrC,
     XorA,
     XorAC,
+    XorAL,
     XorAD8,
     XorAIndHL,
     CpAE,
@@ -356,8 +385,11 @@ impl Opcode {
             Opcode::LdDA => 0,
             Opcode::LdDL => 0,
             Opcode::LdEA => 0,
+            Opcode::LdEL => 0,
             Opcode::LdHA => 0,
+            Opcode::LdHD => 0,
             Opcode::LdLA => 0,
+            Opcode::LdLE => 0,
             Opcode::LdhAA8 => 1,
             Opcode::LdhA8A => 1,
             Opcode::PushAF => 0,
@@ -368,21 +400,26 @@ impl Opcode {
             Opcode::PopBC => 0,
             Opcode::PopDE => 0,
             Opcode::PopHL => 0,
+            Opcode::LdAIndC => 0,
             Opcode::LdAIndDE => 0,
             Opcode::LdAIndHL => 0,
             Opcode::LdBIndHL => 0,
             Opcode::LdCIndHL => 0,
             Opcode::LdDIndHL => 0,
+            Opcode::LdEIndHL => 0,
+            Opcode::LdHIndHL => 0,
             Opcode::LdLIndHL => 0,
             Opcode::LdIndDEA => 0,
             Opcode::LdIndHLA => 0,
             Opcode::LdIndHLB => 0,
             Opcode::LdIndHLC => 0,
             Opcode::LdIndHLD => 0,
+            Opcode::LdIndHLE => 0,
             Opcode::LdIndHLDecA => 0,
             Opcode::LdIndHLIncA => 0,
             Opcode::LdBCD16 => 2,
             Opcode::LdAA16 => 2,
+            Opcode::LdA16SP => 2,
             Opcode::LdDED16 => 2,
             Opcode::LdSPD16 => 2,
             Opcode::LdHLD16 => 2,
@@ -396,6 +433,7 @@ impl Opcode {
             Opcode::IncBC => 0,
             Opcode::IncDE => 0,
             Opcode::IncHL => 0,
+            Opcode::IncSP => 0,
             Opcode::IncH => 0,
             Opcode::IncL => 0,
             Opcode::Daa => 0,
@@ -407,12 +445,15 @@ impl Opcode {
             Opcode::DecH => 0,
             Opcode::DecL => 0,
             Opcode::DecDE => 0,
+            Opcode::DecSP => 0,
             Opcode::DecIndHL => 0,
             Opcode::OrA => 0,
             Opcode::OrAIndHL => 0,
+            Opcode::OrB => 0,
             Opcode::OrC => 0,
             Opcode::XorA => 0,
             Opcode::XorAC => 0,
+            Opcode::XorAL => 0,
             Opcode::XorAD8 => 1,
             Opcode::XorAIndHL => 0,
             Opcode::LdIndCA => 0,
@@ -420,6 +461,8 @@ impl Opcode {
             Opcode::AddAB => 0,
             Opcode::AddAD8 => 1,
             Opcode::AddHLHL => 0,
+            Opcode::AddHLSP => 0,
+            Opcode::AddSPE8 => 1,
             Opcode::AddAIndHL => 0,
             Opcode::AndAD8 => 1,
             Opcode::SubD8 => 1,
@@ -477,8 +520,11 @@ impl Opcode {
             Opcode::LdDA => 4,
             Opcode::LdDL => 4,
             Opcode::LdEA => 4,
+            Opcode::LdEL => 4,
             Opcode::LdHA => 4,
+            Opcode::LdHD => 4,
             Opcode::LdLA => 4,
+            Opcode::LdLE => 4,
             Opcode::LdhAA8 => 12,
             Opcode::LdhA8A => 12,
             Opcode::PushAF => 16,
@@ -494,12 +540,14 @@ impl Opcode {
             Opcode::LdIndHLB => 8,
             Opcode::LdIndHLC => 8,
             Opcode::LdIndHLD => 8,
+            Opcode::LdIndHLE => 8,
             Opcode::LdIndHLDecA => 8,
             Opcode::LdIndHLIncA => 8,
             Opcode::LdHLSPE8 => 12,
             Opcode::LdSPHL => 8,
             Opcode::LdBCD16 => 12,
             Opcode::LdAA16 => 16,
+            Opcode::LdA16SP => 20,
             Opcode::LdDED16 => 12,
             Opcode::LdSPD16 => 12,
             Opcode::LdHLD16 => 12,
@@ -511,6 +559,7 @@ impl Opcode {
             Opcode::IncBC => 8,
             Opcode::IncDE => 8,
             Opcode::IncHL => 8,
+            Opcode::IncSP => 8,
             Opcode::IncH => 4,
             Opcode::IncL => 4,
             Opcode::Daa => 4,
@@ -522,25 +571,33 @@ impl Opcode {
             Opcode::DecH => 4,
             Opcode::DecL => 4,
             Opcode::DecDE => 8,
+            Opcode::DecSP => 8,
             Opcode::DecIndHL => 12,
             Opcode::OrA => 4,
             Opcode::OrAIndHL => 8,
+            Opcode::OrB => 4,
             Opcode::OrC => 4,
             Opcode::XorA => 4,
             Opcode::XorAC => 4,
+            Opcode::XorAL => 4,
             Opcode::XorAD8 => 8,
             Opcode::XorAIndHL => 8,
             Opcode::LdIndCA => 8,
+            Opcode::LdAIndC => 8,
             Opcode::LdAIndDE => 8,
             Opcode::LdAIndHL => 8,
             Opcode::LdBIndHL => 8,
             Opcode::LdCIndHL => 8,
             Opcode::LdDIndHL => 8,
+            Opcode::LdEIndHL => 8,
+            Opcode::LdHIndHL => 8,
             Opcode::LdLIndHL => 8,
             Opcode::AdcAD8 => 8,
             Opcode::AddAB => 4,
             Opcode::AddAD8 => 8,
             Opcode::AddHLHL => 8,
+            Opcode::AddSPE8 => 16,
+            Opcode::AddHLSP => 8,
             Opcode::AddAIndHL => 8,
             Opcode::AndAD8 => 8,
             Opcode::SubD8 => 8,
@@ -575,6 +632,7 @@ impl TryFrom<&u8> for Opcode {
             0x04 => Ok(Opcode::IncB),
             0x05 => Ok(Opcode::DecB),
             0x06 => Ok(Opcode::LdBD8),
+            0x08 => Ok(Opcode::LdA16SP),
             0x0c => Ok(Opcode::IncC),
             0x0d => Ok(Opcode::DecC),
             0x0e => Ok(Opcode::LdCD8),
@@ -613,9 +671,12 @@ impl TryFrom<&u8> for Opcode {
             0x30 => Ok(Opcode::JrNcR8),
             0x31 => Ok(Opcode::LdSPD16),
             0x32 => Ok(Opcode::LdIndHLDecA),
+            0x33 => Ok(Opcode::IncSP),
             0x35 => Ok(Opcode::DecIndHL),
             0x37 => Ok(Opcode::Scf),
             0x38 => Ok(Opcode::JrCR8),
+            0x39 => Ok(Opcode::AddHLSP),
+            0x3b => Ok(Opcode::DecSP),
             0x3c => Ok(Opcode::IncA),
             0x3d => Ok(Opcode::DecA),
             0x3e => Ok(Opcode::LdAD8),
@@ -625,17 +686,24 @@ impl TryFrom<&u8> for Opcode {
             0x4e => Ok(Opcode::LdCIndHL),
             0x4f => Ok(Opcode::LdCA),
 
+            0x5d => Ok(Opcode::LdEL),
+            0x5e => Ok(Opcode::LdEIndHL),
             0x55 => Ok(Opcode::LdDL),
             0x56 => Ok(Opcode::LdDIndHL),
             0x57 => Ok(Opcode::LdDA),
             0x5f => Ok(Opcode::LdEA),
+
+            0x62 => Ok(Opcode::LdHD),
+            0x66 => Ok(Opcode::LdHIndHL),
             0x67 => Ok(Opcode::LdHA),
+            0x6b => Ok(Opcode::LdLE),
             0x6e => Ok(Opcode::LdLIndHL),
             0x6f => Ok(Opcode::LdLA),
 
             0x70 => Ok(Opcode::LdIndHLB),
             0x71 => Ok(Opcode::LdIndHLC),
             0x72 => Ok(Opcode::LdIndHLD),
+            0x73 => Ok(Opcode::LdIndHLE),
             0x77 => Ok(Opcode::LdIndHLA),
             0x78 => Ok(Opcode::LdAB),
             0x79 => Ok(Opcode::LdAC),
@@ -650,10 +718,12 @@ impl TryFrom<&u8> for Opcode {
 
             0x90 => Ok(Opcode::SubAB),
 
+            0xad => Ok(Opcode::XorAL),
             0xa9 => Ok(Opcode::XorAC),
             0xae => Ok(Opcode::XorAIndHL),
             0xaf => Ok(Opcode::XorA),
 
+            0xb0 => Ok(Opcode::OrB),
             0xb1 => Ok(Opcode::OrC),
             0xb6 => Ok(Opcode::OrAIndHL),
             0xb7 => Ok(Opcode::OrA),
@@ -684,10 +754,12 @@ impl TryFrom<&u8> for Opcode {
             0xe5 => Ok(Opcode::PushHL),
             0xe9 => Ok(Opcode::JpHL),
             0xe6 => Ok(Opcode::AndAD8),
+            0xe8 => Ok(Opcode::AddSPE8),
             0xea => Ok(Opcode::LdA16A),
 
             0xf0 => Ok(Opcode::LdhAA8),
             0xf1 => Ok(Opcode::PopAF),
+            0xf2 => Ok(Opcode::LdAIndC),
             0xf3 => Ok(Opcode::Di),
             0xf5 => Ok(Opcode::PushAF),
             0xf8 => Ok(Opcode::LdHLSPE8),
@@ -709,6 +781,7 @@ pub enum PrefixedOpcode {
     RlC,
     RrC,
     RrD,
+    RrE,
     SrlB,
     SwapA,
 }
@@ -721,6 +794,7 @@ impl PrefixedOpcode {
             PrefixedOpcode::RlC => 0,
             PrefixedOpcode::RrC => 0,
             PrefixedOpcode::RrD => 0,
+            PrefixedOpcode::RrE => 0,
             PrefixedOpcode::SrlB => 0,
             PrefixedOpcode::SwapA => 0,
         }
@@ -733,6 +807,7 @@ impl PrefixedOpcode {
             PrefixedOpcode::RlC => 8,
             PrefixedOpcode::RrC => 8,
             PrefixedOpcode::RrD => 8,
+            PrefixedOpcode::RrE => 8,
             PrefixedOpcode::SrlB => 8,
             PrefixedOpcode::SwapA => 8,
         }
@@ -746,6 +821,7 @@ impl TryFrom<&u8> for PrefixedOpcode {
             0x11 => Ok(PrefixedOpcode::RlC),
             0x19 => Ok(PrefixedOpcode::RrC),
             0x1a => Ok(PrefixedOpcode::RrD),
+            0x1b => Ok(PrefixedOpcode::RrE),
 
             0x37 => Ok(PrefixedOpcode::SwapA),
             0x38 => Ok(PrefixedOpcode::SrlB),
