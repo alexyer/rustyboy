@@ -63,6 +63,14 @@ macro_rules! ld_ind_rr_r {
     };
 }
 
+macro_rules! ld_ind_rr_d8 {
+    ($ll: ident, $hh: ident, $name:ident) => {
+        fn $name(&mut self, data: &[u8; 1], mmu: &mut Mmu) {
+            mmu.write_byte(little_endian!(self.$ll, self.$hh) as usize, data[0]);
+        }
+    };
+}
+
 macro_rules! ld_r_ind_rr {
     ($ll: ident, $hh: ident, $r:ident, $name:ident) => {
         fn $name(&mut self, mmu: &mut Mmu) {
@@ -433,6 +441,7 @@ impl Cpu {
                     Opcode::OrAIndHL => self.or_a_ind_hl(mmu),
                     Opcode::OrB => self.or_b(),
                     Opcode::OrC => self.or_c(),
+                    Opcode::OrD8 => self.or_d8(&prepare_data!(instruction, 1)),
                     Opcode::XorA => self.xor_a(),
                     Opcode::XorAC => self.xor_a_c(),
                     Opcode::XorAL => self.xor_a_l(),
@@ -445,6 +454,7 @@ impl Cpu {
                     Opcode::AddAD8 => self.add_a_d8(&prepare_data!(instruction, 1)),
                     Opcode::AddHLHL => self.add_hl_hl(),
                     Opcode::AddHLSP => self.add_hl_sp(),
+                    Opcode::SbcD8 => self.sbc_d8(&prepare_data!(instruction, 1)),
                     Opcode::SubD8 => self.sub_d8(&prepare_data!(instruction, 1)),
                     Opcode::SubAB => self.sub_a_b(),
                     Opcode::CpAE => self.cp_a_e(),
@@ -466,6 +476,7 @@ impl Cpu {
                     Opcode::LdIndHLC => self.ld_ind_hl_c(mmu),
                     Opcode::LdIndHLD => self.ld_ind_hl_d(mmu),
                     Opcode::LdIndHLE => self.ld_ind_hl_e(mmu),
+                    Opcode::LdIndHLD8 => self.ld_ind_hl_d8(&prepare_data!(instruction, 1), mmu),
                     Opcode::LdIndHLDecA => self.ld_ind_hl_dec_a(mmu),
                     Opcode::LdIndHLIncA => self.ld_ind_hl_inc_a(mmu),
                     Opcode::LdIndCA => self.ld_ind_c_a(mmu),
@@ -651,6 +662,12 @@ impl Cpu {
             Opcode::OrAIndHL => Some(Instruction::or_a_ind_hl(&[])),
             Opcode::OrB => Some(Instruction::or_b(&[])),
             Opcode::OrC => Some(Instruction::or_c(&[])),
+            Opcode::OrD8 => {
+                let data = &[mmu.read_byte(self.pc as usize)];
+                self.pc += 1;
+
+                Some(Instruction::or_d8(data))
+            }
             Opcode::XorA => Some(Instruction::xor_a(&[])),
             Opcode::XorAC => Some(Instruction::xor_a_c(&[])),
             Opcode::XorAL => Some(Instruction::xor_a_l(&[])),
@@ -691,6 +708,12 @@ impl Cpu {
                 Some(Instruction::cp_d8(data))
             }
             Opcode::CpAIndHL => Some(Instruction::cp_a_ind_hl(&[])),
+            Opcode::SbcD8 => {
+                let data = &[mmu.read_byte(self.pc as usize)];
+                self.pc += 1;
+
+                Some(Instruction::sbc_d8(data))
+            }
             Opcode::SubD8 => {
                 let data = &[mmu.read_byte(self.pc as usize)];
                 self.pc += 1;
@@ -722,6 +745,12 @@ impl Cpu {
             Opcode::LdIndHLC => Some(Instruction::ld_ind_hl_c(&[])),
             Opcode::LdIndHLD => Some(Instruction::ld_ind_hl_d(&[])),
             Opcode::LdIndHLE => Some(Instruction::ld_ind_hl_e(&[])),
+            Opcode::LdIndHLD8 => {
+                let data = &[mmu.read_byte(self.pc as usize)];
+                self.pc += 1;
+
+                Some(Instruction::ld_ind_hl_d8(data))
+            }
             Opcode::LdIndHLDecA => Some(Instruction::ld_ind_hl_dec_a(&[])),
             Opcode::LdIndHLIncA => Some(Instruction::ld_ind_hl_inc_a(&[])),
             Opcode::LdIndCA => Some(Instruction::ld_ind_c_a(&[])),
@@ -1062,6 +1091,8 @@ impl Cpu {
         self.a &= data[0];
         self.set_z_to(self.a == 0);
         self.set_h();
+        self.clear_n();
+        self.clear_c();
     }
 
     or_r!(a, or_a);
@@ -1098,9 +1129,16 @@ impl Cpu {
         self.a = self.or(self.a, mmu.read_byte(self.hl() as usize));
     }
 
+    fn or_d8(&mut self, data: &[u8; 1]) {
+        self.a = self.or(self.a, data[0]);
+    }
+
     fn or(&mut self, x: u8, y: u8) -> u8 {
         let res = x | y;
         self.set_z_to(res == 0);
+        self.clear_c();
+        self.clear_h();
+        self.clear_n();
 
         res
     }
@@ -1174,7 +1212,7 @@ impl Cpu {
         (res, first_c) = self.a.overflowing_add(self.c().into());
         (res, second_c) = res.overflowing_add(data[0]);
 
-        let carry_u8: u8 = (first_c || second_c).into();
+        let carry_u8: u8 = self.c().into();
 
         self.clear_n();
         self.check_z(res);
@@ -1184,10 +1222,31 @@ impl Cpu {
         self.a = res;
     }
 
+    fn sbc_d8(&mut self, data: &[u8; 1]) {
+        let mut res;
+        let first_c;
+        let second_c;
+
+        (res, first_c) = self.a.overflowing_sub(self.c().into());
+        (res, second_c) = res.overflowing_sub(data[0]);
+
+        let carry_u8: u8 = self.c().into();
+
+        let (r, first_h) = (self.a & 0xf).overflowing_sub(data[0] & 0xf);
+        let (_, second_h) = r.overflowing_sub(carry_u8);
+
+        self.set_n();
+        self.check_z(res);
+        self.set_c_to(first_c || second_c);
+        self.set_h_to(first_h || second_h);
+
+        self.a = res;
+    }
+
     fn sub8(&mut self, x: u8, y: u8) -> u8 {
         let (res, c) = x.overflowing_sub(y);
 
-        let (_, h) = (x & 0xf).overflowing_sub(y);
+        let (_, h) = (x & 0xf).overflowing_sub(y & 0xf);
 
         self.set_n();
         self.check_z(res);
@@ -1267,6 +1326,8 @@ impl Cpu {
     ld_ind_rr_r!(l, h, d, ld_ind_hl_d);
     ld_ind_rr_r!(l, h, e, ld_ind_hl_e);
     ld_ind_rr_r!(e, d, a, ld_ind_de_a);
+
+    ld_ind_rr_d8!(l, h, ld_ind_hl_d8);
 
     fn ld_ind_hl_dec_a(&mut self, mmu: &mut Mmu) {
         self.ld_ind_hl_a(mmu);
@@ -1596,6 +1657,25 @@ mod tests {
                 assert_eq!(cycles, 8);
                 assert_eq!(cpu.pc, 1);
                 assert_eq!(mmu.read_byte(5), 42);
+            }
+        };
+    }
+
+    macro_rules! test_ld_ind_rr_d8 {
+        ($ll:ident, $hh:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.$hh = 0;
+                cpu.$ll = 5;
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.pc, 2);
+                assert_eq!(mmu.read_byte(5), 0xde);
             }
         };
     }
@@ -1994,6 +2074,24 @@ mod tests {
     test_or_r!(c, &[0xb1], test_or_c);
 
     #[test]
+    fn test_or_d8() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.a = 0xaa;
+        mmu.write_slice(&[0xf6, 0x55], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.pc, 2);
+        assert_eq!(cpu.a, 0xff);
+        assert!(!cpu.z());
+        assert!(!cpu.n());
+        assert!(!cpu.h());
+        assert!(!cpu.c());
+    }
+
+    #[test]
     fn test_or_a_ind_hl() {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
@@ -2231,6 +2329,25 @@ mod tests {
     }
 
     #[test]
+    fn test_sbc_d8() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.a = 20;
+        cpu.set_c();
+        mmu.write_slice(&[0xde, 0xa], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.pc, 2);
+        assert_eq!(cpu.a, 9);
+        assert!(!cpu.z());
+        assert!(!cpu.c());
+        assert!(cpu.n());
+        assert!(cpu.h());
+    }
+
+    #[test]
     fn test_sub_a_b() {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
@@ -2421,6 +2538,8 @@ mod tests {
     test_ld_ind_rr_r!(c, l, h, &[0x71], test_ld_ind_hl_c);
     test_ld_ind_rr_r!(d, l, h, &[0x72], test_ld_ind_hl_d);
     test_ld_ind_rr_r!(e, l, h, &[0x73], test_ld_ind_hl_e);
+
+    test_ld_ind_rr_d8!(l, h, &[0x36, 0xde], test_ld_ind_hl_d8);
 
     #[test]
     fn test_ld_ind_c_a() {
