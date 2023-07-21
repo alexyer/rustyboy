@@ -127,6 +127,7 @@ impl Instruction {
     impl_instruction_constructor!(ld_a_ind_hl_inc, Opcode::LdAIndHLInc, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_ind_c_a, Opcode::LdIndCA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(ld_hl_sp_e8, Opcode::LdHLSPE8, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(ld_sp_hl, Opcode::LdSPHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_a, Opcode::IncA, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_b, Opcode::IncB, None::<PrefixedOpcode>);
     impl_instruction_constructor!(inc_c, Opcode::IncC, None::<PrefixedOpcode>);
@@ -257,7 +258,6 @@ pub enum Opcode {
     LdIndHLDecA,
     LdIndHLIncA,
     LdIndCA,
-    LdHLSPE8,
     PushAF,
     PushBC,
     PushDE,
@@ -266,14 +266,16 @@ pub enum Opcode {
     PopBC,
     PopDE,
     PopHL,
-    LdA16A,
 
     // 16-bit load instructions
+    LdA16A,
     LdAA16,
     LdBCD16,
     LdDED16,
     LdHLD16,
+    LdHLSPE8,
     LdSPD16,
+    LdSPHL,
 
     // 8-bit arithmetic and logical instructions
     AdcAD8,
@@ -385,6 +387,7 @@ impl Opcode {
             Opcode::LdSPD16 => 2,
             Opcode::LdHLD16 => 2,
             Opcode::LdHLSPE8 => 1,
+            Opcode::LdSPHL => 0,
             Opcode::IncA => 0,
             Opcode::IncB => 0,
             Opcode::IncC => 0,
@@ -494,6 +497,7 @@ impl Opcode {
             Opcode::LdIndHLDecA => 8,
             Opcode::LdIndHLIncA => 8,
             Opcode::LdHLSPE8 => 12,
+            Opcode::LdSPHL => 8,
             Opcode::LdBCD16 => 12,
             Opcode::LdAA16 => 16,
             Opcode::LdDED16 => 12,
@@ -687,6 +691,7 @@ impl TryFrom<&u8> for Opcode {
             0xf3 => Ok(Opcode::Di),
             0xf5 => Ok(Opcode::PushAF),
             0xf8 => Ok(Opcode::LdHLSPE8),
+            0xf9 => Ok(Opcode::LdSPHL),
             0xfa => Ok(Opcode::LdAA16),
             0xfb => Ok(Opcode::Ei),
             0xfe => Ok(Opcode::CpD8),

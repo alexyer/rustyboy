@@ -456,6 +456,7 @@ impl Cpu {
                     Opcode::Cpl => self.cpl(),
                     Opcode::Scf => self.scf(),
                     Opcode::LdA16A => self.ld_a16_a(&prepare_data!(instruction, 2), mmu),
+                    Opcode::LdSPHL => self.ld_sp_hl(),
                     Opcode::Prefix => match instruction.prefixed_opcode().unwrap() {
                         PrefixedOpcode::Bit0D => self.bit0d(),
                         PrefixedOpcode::Bit7H => self.bit7h(),
@@ -559,6 +560,7 @@ impl Cpu {
 
                 Some(Instruction::ld_hl_sp_e8(data))
             }
+            Opcode::LdSPHL => Some(Instruction::ld_sp_hl(&[])),
             Opcode::LdAB => Some(Instruction::ld_a_b(&[])),
             Opcode::LdAC => Some(Instruction::ld_a_c(&[])),
             Opcode::LdAD => Some(Instruction::ld_a_d(&[])),
@@ -969,6 +971,10 @@ impl Cpu {
 
         self.set_h_to(((self.sp ^ e8 as u16 ^ (val & 0xffff)) & 0x10) == 0x10);
         self.set_c_to(((self.sp ^ e8 as u16 ^ (val & 0xffff)) & 0x100) == 0x100);
+    }
+
+    fn ld_sp_hl(&mut self) {
+        self.sp = self.hl();
     }
 
     fn and_a_d8(&mut self, data: &[u8; 1]) {
@@ -1760,6 +1766,22 @@ mod tests {
         assert_eq!(cycles, 16);
         assert_eq!(cpu.pc, 3);
         assert_eq!(mmu.read_byte(0x0005), 42);
+    }
+
+    #[test]
+    fn test_ld_sp_hl() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.h = 0xde;
+        cpu.l = 0xad;
+
+        mmu.write_slice(&[0xf9], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.pc, 1);
+        assert_eq!(cpu.sp, 0xdead);
     }
 
     #[test]

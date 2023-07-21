@@ -37,8 +37,8 @@ impl GameBoy {
             while executed_cycles <= CYCLES_PER_SEC {
                 executed_cycles += self.step();
             }
-            println!("{}", self.cpu);
-            println!("IE: 0b{:08b}", self.mmu.read_byte(INT_ENABLE_ADDRESS));
+            // println!("{}", self.cpu);
+            // println!("IE: 0b{:08b}", self.mmu.read_byte(INT_ENABLE_ADDRESS));
             std::thread::sleep(
                 std::time::Duration::from_secs(1) - std::time::Instant::now().duration_since(start),
             );
