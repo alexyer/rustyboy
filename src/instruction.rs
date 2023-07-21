@@ -155,12 +155,16 @@ impl Instruction {
     impl_instruction_constructor!(dec_e, Opcode::DecE, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_h, Opcode::DecH, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_l, Opcode::DecL, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(dec_bc, Opcode::DecBC, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_de, Opcode::DecDE, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(dec_hl, Opcode::DecHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_sp, Opcode::DecSP, None::<PrefixedOpcode>);
     impl_instruction_constructor!(dec_ind_hl, Opcode::DecIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(adc_a_d8, Opcode::AdcAD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_a_b, Opcode::AddAB, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_a_d8, Opcode::AddAD8, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(add_hl_bc, Opcode::AddHLBC, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(add_hl_de, Opcode::AddHLDE, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_hl_hl, Opcode::AddHLHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_hl_sp, Opcode::AddHLSP, None::<PrefixedOpcode>);
     impl_instruction_constructor!(add_sp_e8, Opcode::AddSPE8, None::<PrefixedOpcode>);
@@ -309,6 +313,8 @@ pub enum Opcode {
     AddAB,
     AddAIndHL,
     AddAD8,
+    AddHLBC,
+    AddHLDE,
     AddHLHL,
     AddHLSP,
     AddSPE8,
@@ -335,7 +341,9 @@ pub enum Opcode {
     DecE,
     DecH,
     DecL,
+    DecBC,
     DecDE,
+    DecHL,
     DecSP,
     DecIndHL,
     OrA,
@@ -451,7 +459,9 @@ impl Opcode {
             Opcode::DecE => 0,
             Opcode::DecH => 0,
             Opcode::DecL => 0,
+            Opcode::DecBC => 0,
             Opcode::DecDE => 0,
+            Opcode::DecHL => 0,
             Opcode::DecSP => 0,
             Opcode::DecIndHL => 0,
             Opcode::OrA => 0,
@@ -468,6 +478,8 @@ impl Opcode {
             Opcode::AdcAD8 => 1,
             Opcode::AddAB => 0,
             Opcode::AddAD8 => 1,
+            Opcode::AddHLBC => 0,
+            Opcode::AddHLDE => 0,
             Opcode::AddHLHL => 0,
             Opcode::AddHLSP => 0,
             Opcode::AddSPE8 => 1,
@@ -580,7 +592,9 @@ impl Opcode {
             Opcode::DecE => 4,
             Opcode::DecH => 4,
             Opcode::DecL => 4,
+            Opcode::DecBC => 8,
             Opcode::DecDE => 8,
+            Opcode::DecHL => 8,
             Opcode::DecSP => 8,
             Opcode::DecIndHL => 12,
             Opcode::OrA => 4,
@@ -606,6 +620,8 @@ impl Opcode {
             Opcode::AdcAD8 => 8,
             Opcode::AddAB => 4,
             Opcode::AddAD8 => 8,
+            Opcode::AddHLBC => 8,
+            Opcode::AddHLDE => 8,
             Opcode::AddHLHL => 8,
             Opcode::AddSPE8 => 16,
             Opcode::AddHLSP => 8,
@@ -645,6 +661,8 @@ impl TryFrom<&u8> for Opcode {
             0x05 => Ok(Opcode::DecB),
             0x06 => Ok(Opcode::LdBD8),
             0x08 => Ok(Opcode::LdA16SP),
+            0x09 => Ok(Opcode::AddHLBC),
+            0x0b => Ok(Opcode::DecBC),
             0x0c => Ok(Opcode::IncC),
             0x0d => Ok(Opcode::DecC),
             0x0e => Ok(Opcode::LdCD8),
@@ -657,6 +675,7 @@ impl TryFrom<&u8> for Opcode {
             0x16 => Ok(Opcode::LdDD8),
             0x17 => Ok(Opcode::RlA),
             0x18 => Ok(Opcode::JrR8),
+            0x19 => Ok(Opcode::AddHLDE),
             0x1a => Ok(Opcode::LdAIndDE),
             0x1b => Ok(Opcode::DecDE),
             0x1c => Ok(Opcode::IncE),
@@ -675,6 +694,7 @@ impl TryFrom<&u8> for Opcode {
             0x28 => Ok(Opcode::JrZR8),
             0x29 => Ok(Opcode::AddHLHL),
             0x2a => Ok(Opcode::LdAIndHLInc),
+            0x2b => Ok(Opcode::DecHL),
             0x2c => Ok(Opcode::IncL),
             0x2d => Ok(Opcode::DecL),
             0x2e => Ok(Opcode::LdLD8),

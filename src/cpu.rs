@@ -249,6 +249,15 @@ macro_rules! ld_r_a16 {
     };
 }
 
+macro_rules! add_hl_rr {
+    ($rr:ident, $name:ident) => {
+        fn $name(&mut self) {
+            let res = self.add16(self.hl(), self.$rr());
+            self.set_hl(res);
+        }
+    };
+}
+
 #[derive(Default, Debug)]
 pub struct Cpu {
     /// Program Counter/Pointer
@@ -434,7 +443,9 @@ impl Cpu {
                     Opcode::DecE => self.dec_e(),
                     Opcode::DecH => self.dec_h(),
                     Opcode::DecL => self.dec_l(),
+                    Opcode::DecBC => self.dec_bc(),
                     Opcode::DecDE => self.dec_de(),
+                    Opcode::DecHL => self.dec_hl(),
                     Opcode::DecSP => self.dec_sp(),
                     Opcode::DecIndHL => self.dec_ind_hl(mmu),
                     Opcode::OrA => self.or_a(),
@@ -452,6 +463,8 @@ impl Cpu {
                     Opcode::AddAB => self.add_a_b(),
                     Opcode::AddAIndHL => self.add_a_ind_hl(mmu),
                     Opcode::AddAD8 => self.add_a_d8(&prepare_data!(instruction, 1)),
+                    Opcode::AddHLBC => self.add_hl_bc(),
+                    Opcode::AddHLDE => self.add_hl_de(),
                     Opcode::AddHLHL => self.add_hl_hl(),
                     Opcode::AddHLSP => self.add_hl_sp(),
                     Opcode::SbcD8 => self.sbc_d8(&prepare_data!(instruction, 1)),
@@ -655,7 +668,9 @@ impl Cpu {
             Opcode::DecE => Some(Instruction::dec_e(&[])),
             Opcode::DecH => Some(Instruction::dec_h(&[])),
             Opcode::DecL => Some(Instruction::dec_l(&[])),
+            Opcode::DecBC => Some(Instruction::dec_bc(&[])),
             Opcode::DecDE => Some(Instruction::dec_de(&[])),
+            Opcode::DecHL => Some(Instruction::dec_hl(&[])),
             Opcode::DecSP => Some(Instruction::dec_sp(&[])),
             Opcode::DecIndHL => Some(Instruction::dec_ind_hl(&[])),
             Opcode::OrA => Some(Instruction::or_a(&[])),
@@ -691,6 +706,8 @@ impl Cpu {
                 Some(Instruction::adc_a_d8(data))
             }
             Opcode::AddAB => Some(Instruction::add_a_b(&[])),
+            Opcode::AddHLBC => Some(Instruction::add_hl_bc(&[])),
+            Opcode::AddHLDE => Some(Instruction::add_hl_de(&[])),
             Opcode::AddHLHL => Some(Instruction::add_hl_hl(&[])),
             Opcode::AddHLSP => Some(Instruction::add_hl_sp(&[])),
             Opcode::AddAIndHL => Some(Instruction::add_a_ind_hl(&[])),
@@ -872,8 +889,21 @@ impl Cpu {
     impl_flag!(set_h, clear_h, set_h_to, h, 5);
     impl_flag!(set_c, clear_c, set_c_to, c, 4);
 
+    fn bc(&self) -> u16 {
+        little_endian!(self.c, self.b)
+    }
+
+    fn de(&self) -> u16 {
+        little_endian!(self.e, self.d)
+    }
+
     fn hl(&self) -> u16 {
         little_endian!(self.l, self.h)
+    }
+
+    fn set_hl(&mut self, val: u16) {
+        self.h = ((val & 0xff00) >> 8) as u8;
+        self.l = (val & 0x00ff) as u8;
     }
 
     fn check_z(&mut self, value: u8) {
@@ -1192,11 +1222,9 @@ impl Cpu {
         res
     }
 
-    fn add_hl_hl(&mut self) {
-        let res = self.add16(self.hl(), self.hl());
-        self.h = ((res & 0xff00) >> 8) as u8;
-        self.l = (res & 0x00ff) as u8;
-    }
+    add_hl_rr!(bc, add_hl_bc);
+    add_hl_rr!(de, add_hl_de);
+    add_hl_rr!(hl, add_hl_hl);
 
     fn add_hl_sp(&mut self) {
         let res = self.add16(self.hl(), self.sp);
@@ -1287,6 +1315,7 @@ impl Cpu {
     dec_r!(e, dec_e);
     dec_r!(h, dec_h);
     dec_r!(l, dec_l);
+    dec_rr!(c, b, dec_bc);
     dec_rr!(e, d, dec_de);
     dec_rr!(l, h, dec_hl);
 
@@ -1455,6 +1484,23 @@ mod tests {
                 assert_eq!(cpu.$r, 42);
                 assert!(!cpu.h());
                 assert!(cpu.n());
+            }
+        };
+    }
+
+    macro_rules! test_dec_rr {
+        ($ll:ident, $hh:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.$ll = 43;
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 8);
+                assert_eq!(cpu.$ll, 42);
             }
         };
     }
@@ -1741,6 +1787,31 @@ mod tests {
                 assert!(!cpu.n());
                 assert!(!cpu.h());
                 assert!(!cpu.c());
+            }
+        };
+    }
+
+    macro_rules! test_add_hl_rr {
+        ($ll:ident, $hh:ident, $mnemonic:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.$hh = 0;
+                cpu.$ll = 0xad;
+                cpu.h = 0xde;
+                cpu.l = 0;
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 8);
+                assert_eq!(cpu.pc, 1);
+                assert_eq!(cpu.hl(), 0xdead);
+                assert!(!cpu.z());
+                assert!(!cpu.c());
+                assert!(!cpu.n());
+                assert!(!cpu.h());
             }
         };
     }
@@ -2186,6 +2257,9 @@ mod tests {
         assert!(cpu.h());
     }
 
+    test_add_hl_rr!(c, b, &[0x09], test_add_hl_bc);
+    test_add_hl_rr!(e, d, &[0x19], test_add_hl_de);
+
     #[test]
     fn test_add_hl_hl() {
         let mut cpu = Cpu::default();
@@ -2456,18 +2530,9 @@ mod tests {
     test_dec_r!(h, &[0x25], test_dec_h);
     test_dec_r!(l, &[0x2d], test_dec_l);
 
-    #[test]
-    fn test_dec_de() {
-        let mut cpu = Cpu::default();
-        let mut mmu = Mmu::default();
-        cpu.e = 43;
-        mmu.write_slice(&[0x1b], 0);
-
-        let cycles = cpu.exec_instruction(&mut mmu);
-
-        assert_eq!(cycles, 8);
-        assert_eq!(cpu.e, 42);
-    }
+    test_dec_rr!(c, b, &[0x0b], test_dec_bc);
+    test_dec_rr!(e, d, &[0x1b], test_dec_de);
+    test_dec_rr!(l, h, &[0x2b], test_dec_hl);
 
     #[test]
     fn test_dec_sp() {
