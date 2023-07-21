@@ -1025,12 +1025,14 @@ impl Cpu {
         let val = if e8 >= 0 {
             self.sp.wrapping_add(e8 as u16)
         } else {
-            self.sp.wrapping_add(e8 as u16)
+            self.sp.wrapping_sub(-e8 as u16)
         };
 
         self.h = ((val & 0xff00) >> 8) as u8;
         self.l = (val & 0x00ff) as u8;
 
+        self.clear_z();
+        self.clear_n();
         self.set_h_to(((self.sp ^ e8 as u16 ^ (val & 0xffff)) & 0x10) == 0x10);
         self.set_c_to(((self.sp ^ e8 as u16 ^ (val & 0xffff)) & 0x100) == 0x100);
     }
@@ -1041,9 +1043,11 @@ impl Cpu {
         let val = if e8 >= 0 {
             self.sp.wrapping_add(e8 as u16)
         } else {
-            self.sp.wrapping_add(e8 as u16)
+            self.sp.wrapping_sub(-e8 as u16)
         };
 
+        self.clear_z();
+        self.clear_n();
         self.set_h_to(((self.sp ^ e8 as u16 ^ (val & 0xffff)) & 0x10) == 0x10);
         self.set_c_to(((self.sp ^ e8 as u16 ^ (val & 0xffff)) & 0x100) == 0x100);
 
