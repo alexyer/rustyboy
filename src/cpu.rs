@@ -404,7 +404,14 @@ impl Cpu {
                     Opcode::LdAH => self.ld_a_h(),
                     Opcode::LdAL => self.ld_a_l(),
                     Opcode::LdBA => self.ld_b_a(),
+                    Opcode::LdBB => self.ld_b_b(),
+                    Opcode::LdBC => self.ld_b_c(),
+                    Opcode::LdBD => self.ld_b_d(),
+                    Opcode::LdBE => self.ld_b_e(),
+                    Opcode::LdBH => self.ld_b_h(),
+                    Opcode::LdBL => self.ld_b_l(),
                     Opcode::LdCA => self.ld_c_a(),
+                    Opcode::LdCB => self.ld_c_b(),
                     Opcode::LdDA => self.ld_d_a(),
                     Opcode::LdDL => self.ld_d_l(),
                     Opcode::LdEA => self.ld_e_a(),
@@ -632,7 +639,14 @@ impl Cpu {
             Opcode::LdAH => Some(Instruction::ld_a_h(&[])),
             Opcode::LdAL => Some(Instruction::ld_a_l(&[])),
             Opcode::LdBA => Some(Instruction::ld_b_a(&[])),
+            Opcode::LdBB => Some(Instruction::ld_b_b(&[])),
+            Opcode::LdBC => Some(Instruction::ld_b_c(&[])),
+            Opcode::LdBD => Some(Instruction::ld_b_d(&[])),
+            Opcode::LdBE => Some(Instruction::ld_b_e(&[])),
+            Opcode::LdBH => Some(Instruction::ld_b_h(&[])),
+            Opcode::LdBL => Some(Instruction::ld_b_l(&[])),
             Opcode::LdCA => Some(Instruction::ld_c_a(&[])),
+            Opcode::LdCB => Some(Instruction::ld_c_b(&[])),
             Opcode::LdDA => Some(Instruction::ld_d_a(&[])),
             Opcode::LdDL => Some(Instruction::ld_d_l(&[])),
             Opcode::LdEA => Some(Instruction::ld_e_a(&[])),
@@ -1045,7 +1059,14 @@ impl Cpu {
     ld_r_r!(a, h, ld_a_h);
     ld_r_r!(a, l, ld_a_l);
     ld_r_r!(b, a, ld_b_a);
+    ld_r_r!(b, b, ld_b_b);
+    ld_r_r!(c, b, ld_b_c);
+    ld_r_r!(d, b, ld_b_d);
+    ld_r_r!(e, b, ld_b_e);
+    ld_r_r!(h, b, ld_b_h);
+    ld_r_r!(l, b, ld_b_l);
     ld_r_r!(c, a, ld_c_a);
+    ld_r_r!(b, a, ld_c_b);
     ld_r_r!(d, a, ld_d_a);
     ld_r_r!(d, l, ld_d_l);
     ld_r_r!(e, a, ld_e_a);
@@ -2048,7 +2069,13 @@ mod tests {
     test_ld_r_r!(a, h, &[0x7c], test_ld_a_h);
     test_ld_r_r!(a, l, &[0x7d], test_ld_a_l);
     test_ld_r_r!(b, a, &[0x47], test_ld_b_a);
+    test_ld_r_r!(c, b, &[0x41], test_ld_b_c);
+    test_ld_r_r!(d, b, &[0x42], test_ld_b_d);
+    test_ld_r_r!(e, b, &[0x43], test_ld_b_e);
+    test_ld_r_r!(h, b, &[0x44], test_ld_b_h);
+    test_ld_r_r!(l, b, &[0x45], test_ld_b_l);
     test_ld_r_r!(c, a, &[0x4f], test_ld_c_a);
+    test_ld_r_r!(c, b, &[0x48], test_ld_c_b);
     test_ld_r_r!(d, a, &[0x57], test_ld_d_a);
     test_ld_r_r!(d, l, &[0x55], test_ld_d_l);
     test_ld_r_r!(e, a, &[0x5f], test_ld_e_a);
