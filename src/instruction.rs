@@ -186,8 +186,8 @@ impl Instruction {
     impl_instruction_constructor!(or_c, Opcode::OrC, None::<PrefixedOpcode>);
     impl_instruction_constructor!(or_d8, Opcode::OrD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(xor_a, Opcode::XorA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(xor_a_c, Opcode::XorAC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(xor_a_l, Opcode::XorAL, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(xor_a_c, Opcode::XorC, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(xor_a_l, Opcode::XorL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(xor_a_d8, Opcode::XorAD8, None::<PrefixedOpcode>);
     impl_instruction_constructor!(xor_a_ind_hl, Opcode::XorAIndHL, None::<PrefixedOpcode>);
     impl_instruction_constructor!(cp_a_e, Opcode::CpAE, None::<PrefixedOpcode>);
@@ -366,8 +366,8 @@ pub enum Opcode {
     OrC,
     OrD8,
     XorA,
-    XorAC,
-    XorAL,
+    XorC,
+    XorL,
     XorAD8,
     XorAIndHL,
     CpAE,
@@ -454,9 +454,9 @@ impl Opcode {
             Opcode::LdIndHLDecA => 0,
             Opcode::LdIndHLIncA => 0,
             Opcode::LdBCD16 => 2,
+            Opcode::LdDED16 => 2,
             Opcode::LdAA16 => 2,
             Opcode::LdA16SP => 2,
-            Opcode::LdDED16 => 2,
             Opcode::LdSPD16 => 2,
             Opcode::LdHLD16 => 2,
             Opcode::LdHLSPE8 => 1,
@@ -491,8 +491,8 @@ impl Opcode {
             Opcode::OrC => 0,
             Opcode::OrD8 => 1,
             Opcode::XorA => 0,
-            Opcode::XorAC => 0,
-            Opcode::XorAL => 0,
+            Opcode::XorC => 0,
+            Opcode::XorL => 0,
             Opcode::XorAD8 => 1,
             Opcode::XorAIndHL => 0,
             Opcode::LdIndCA => 0,
@@ -631,8 +631,8 @@ impl Opcode {
             Opcode::OrC => 4,
             Opcode::OrD8 => 8,
             Opcode::XorA => 4,
-            Opcode::XorAC => 4,
-            Opcode::XorAL => 4,
+            Opcode::XorC => 4,
+            Opcode::XorL => 4,
             Opcode::XorAD8 => 8,
             Opcode::XorAIndHL => 8,
             Opcode::LdIndCA => 8,
@@ -786,8 +786,8 @@ impl TryFrom<&u8> for Opcode {
 
             0x90 => Ok(Opcode::SubAB),
 
-            0xad => Ok(Opcode::XorAL),
-            0xa9 => Ok(Opcode::XorAC),
+            0xad => Ok(Opcode::XorL),
+            0xa9 => Ok(Opcode::XorC),
             0xae => Ok(Opcode::XorAIndHL),
             0xaf => Ok(Opcode::XorA),
 
