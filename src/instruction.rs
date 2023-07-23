@@ -1,4 +1,7 @@
-use crate::errors::InstructionError;
+use crate::{
+    cpu::{Reg, Reg16},
+    errors::InstructionError,
+};
 
 macro_rules! check_data {
     ($data:ident, $opcode:expr, $prefixed_opcode:expr) => {
@@ -25,15 +28,19 @@ macro_rules! check_data {
 }
 
 macro_rules! impl_instruction_constructor {
-    ($fun:ident, $opcode:expr, $prefixed_opcode:expr) => {
+    ($fun:ident, $type:expr, $opcode:expr, $prefixed_opcode:expr, $regs:expr) => {
         pub fn $fun(data: &[u8]) -> Self {
             let opcode = $opcode;
             let prefixed_opcode = $prefixed_opcode;
+            let instruction_type = $type;
+            let regs = $regs;
 
             check_data!(data, opcode, prefixed_opcode);
             Self {
                 opcode,
                 prefixed_opcode,
+                instruction_type,
+                regs,
                 data: data.into(),
             }
         }
@@ -41,15 +48,109 @@ macro_rules! impl_instruction_constructor {
 }
 
 #[derive(Debug)]
+pub enum InstructionType {
+    Nop,
+    Daa,
+    LdRrD16,
+    LdRD8,
+    LdAA16,
+    LdRR,
+    LdAA8,
+    LdA8A,
+    LdAIndC,
+    LdRIndRR,
+    LdIndRrR,
+    PushRr,
+    PopRr,
+    LdA16A,
+    LdA16Sp,
+    LdIndHlD8,
+    LdIndHlDecA,
+    LdIndHLIncA,
+    LdAIndHLInc,
+    LdIndCA,
+    LdHLSPE8,
+    LdRrRr,
+    IncR,
+    IncRr,
+    DecR,
+    DecRr,
+    DecIndHl,
+    AdcD8,
+    AddR,
+    AddD8,
+    AddRrRr,
+    AddSpE8,
+    AddAIndHl,
+    AndD8,
+    SbcD8,
+    SubD8,
+    SubR,
+    OrR,
+    OrAIndHl,
+    OrD8,
+    XorR,
+    XorD8,
+    XorAIndHl,
+    CpR,
+    CpD8,
+    CpAIndHl,
+    Cpl,
+    Scf,
+    Jr,
+    Jp,
+    Call,
+    Ret,
+    Di,
+    Ei,
+    Bit0R,
+    Bit7R,
+    RlR,
+    RrR,
+    SrlR,
+    SwapR,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum InstructionReg {
+    Reg(Reg),
+    Reg16(Reg16),
+}
+
+impl Into<Reg> for InstructionReg {
+    fn into(self) -> Reg {
+        match self {
+            InstructionReg::Reg(reg) => reg,
+            InstructionReg::Reg16(_) => unreachable!(),
+        }
+    }
+}
+
+impl Into<Reg16> for InstructionReg {
+    fn into(self) -> Reg16 {
+        match self {
+            InstructionReg::Reg(_) => unreachable!(),
+            InstructionReg::Reg16(reg) => reg,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Instruction {
     opcode: Opcode,
     prefixed_opcode: Option<PrefixedOpcode>,
+    instruction_type: InstructionType,
+    regs: Option<Vec<InstructionReg>>,
     data: Vec<u8>,
 }
 
 impl Instruction {
     pub fn opcode(&self) -> &Opcode {
         &self.opcode
+    }
+
+    pub fn instruction_type(&self) -> &InstructionType {
+        &self.instruction_type
     }
 
     pub fn prefixed_opcode(&self) -> &Option<PrefixedOpcode> {
@@ -68,161 +169,1205 @@ impl Instruction {
         &self.data
     }
 
+    pub fn regs(&self) -> &Option<Vec<InstructionReg>> {
+        &self.regs
+    }
+
     pub fn nop() -> Self {
         Self {
             opcode: Opcode::Nop,
             prefixed_opcode: None,
+            instruction_type: InstructionType::Nop,
             data: vec![],
+            regs: None,
         }
     }
 
-    impl_instruction_constructor!(ld_bc_d16, Opcode::LdBCD16, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_de_d16, Opcode::LdDED16, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_sp_d16, Opcode::LdSPD16, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_hl_d16, Opcode::LdHLD16, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_d8, Opcode::LdAD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_a16, Opcode::LdAA16, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_b_d8, Opcode::LdBD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_c_d8, Opcode::LdCD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_d_d8, Opcode::LdDD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_e_d8, Opcode::LdED8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_h_d8, Opcode::LdHD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_l_d8, Opcode::LdLD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_b, Opcode::LdAB, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_c, Opcode::LdAC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_d, Opcode::LdAD, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_e, Opcode::LdAE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_h, Opcode::LdAH, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_l, Opcode::LdAL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_b_a, Opcode::LdBA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_b_b, Opcode::LdBB, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_b_c, Opcode::LdBC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_b_d, Opcode::LdBD, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_b_e, Opcode::LdBE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_b_h, Opcode::LdBH, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_b_l, Opcode::LdBL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_c_a, Opcode::LdCA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_c_b, Opcode::LdCB, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_d_a, Opcode::LdDA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_d_l, Opcode::LdDL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_e_a, Opcode::LdEA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_e_l, Opcode::LdEL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_h_a, Opcode::LdHA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_h_d, Opcode::LdHD, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_l_a, Opcode::LdLA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_l_e, Opcode::LdLE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_a_a8, Opcode::LdhAA8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_a8_a, Opcode::LdhA8A, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_ind_c, Opcode::LdAIndC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_a_ind_de, Opcode::LdAIndDE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_a_ind_hl, Opcode::LdAIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_b_ind_hl, Opcode::LdBIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_c_ind_hl, Opcode::LdCIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_d_ind_hl, Opcode::LdDIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_e_ind_hl, Opcode::LdEIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_h_ind_hl, Opcode::LdHIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ldh_l_ind_hl, Opcode::LdLIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(push_af, Opcode::PushAF, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(push_bc, Opcode::PushBC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(push_de, Opcode::PushDE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(push_hl, Opcode::PushHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(pop_af, Opcode::PopAF, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(pop_bc, Opcode::PopBC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(pop_de, Opcode::PopDE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(pop_hl, Opcode::PopHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_de_a, Opcode::LdIndDEA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_hl_a, Opcode::LdIndHLA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_hl_b, Opcode::LdIndHLB, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_hl_c, Opcode::LdIndHLC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_hl_d, Opcode::LdIndHLD, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_hl_e, Opcode::LdIndHLE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_hl_d8, Opcode::LdIndHLD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_hl_dec_a, Opcode::LdIndHLDecA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_hl_inc_a, Opcode::LdIndHLIncA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a_ind_hl_inc, Opcode::LdAIndHLInc, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_ind_c_a, Opcode::LdIndCA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_hl_sp_e8, Opcode::LdHLSPE8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_sp_hl, Opcode::LdSPHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_a, Opcode::IncA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_b, Opcode::IncB, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_c, Opcode::IncC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_d, Opcode::IncD, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_e, Opcode::IncE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_bc, Opcode::IncBC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_de, Opcode::IncDE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_hl, Opcode::IncHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_sp, Opcode::IncSP, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_h, Opcode::IncH, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(inc_l, Opcode::IncL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(daa, Opcode::Daa, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_a, Opcode::DecA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_b, Opcode::DecB, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_c, Opcode::DecC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_d, Opcode::DecD, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_e, Opcode::DecE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_h, Opcode::DecH, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_l, Opcode::DecL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_bc, Opcode::DecBC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_de, Opcode::DecDE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_hl, Opcode::DecHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_sp, Opcode::DecSP, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(dec_ind_hl, Opcode::DecIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(adc_a_d8, Opcode::AdcAD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(add_a_b, Opcode::AddAB, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(add_a_d8, Opcode::AddAD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(add_hl_bc, Opcode::AddHLBC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(add_hl_de, Opcode::AddHLDE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(add_hl_hl, Opcode::AddHLHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(add_hl_sp, Opcode::AddHLSP, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(add_sp_e8, Opcode::AddSPE8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(add_a_ind_hl, Opcode::AddAIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(and_a_d8, Opcode::AndAD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(sbc_d8, Opcode::SbcD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(sub_d8, Opcode::SubD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(sub_a_b, Opcode::SubAB, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(or_a, Opcode::OrA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(or_b, Opcode::OrB, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(or_a_ind_hl, Opcode::OrAIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(or_c, Opcode::OrC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(or_d8, Opcode::OrD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(xor_a, Opcode::XorA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(xor_a_c, Opcode::XorC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(xor_a_l, Opcode::XorL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(xor_a_d8, Opcode::XorAD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(xor_a_ind_hl, Opcode::XorAIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(cp_a_e, Opcode::CpAE, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(cp_d8, Opcode::CpD8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(cp_a_ind_hl, Opcode::CpAIndHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(cpl, Opcode::Cpl, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(scf, Opcode::Scf, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(jr_r8, Opcode::JrR8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(jr_c_r8, Opcode::JrCR8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(jr_nc_r8, Opcode::JrNcR8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(jr_nz_r8, Opcode::JrNzR8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(jr_z_r8, Opcode::JrZR8, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(jp_a16, Opcode::JpA16, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(jp_nz_a16, Opcode::JpNzA16, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(jp_hl, Opcode::JpHL, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(call_a16, Opcode::CallA16, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(call_nz_a16, Opcode::CallNzA16, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(di, Opcode::Di, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ei, Opcode::Ei, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(bit0d, Opcode::Prefix, Some(PrefixedOpcode::Bit0D));
-    impl_instruction_constructor!(bit7h, Opcode::Prefix, Some(PrefixedOpcode::Bit7H));
-    impl_instruction_constructor!(rl_c, Opcode::Prefix, Some(PrefixedOpcode::RlC));
-    impl_instruction_constructor!(rr_c, Opcode::Prefix, Some(PrefixedOpcode::RrC));
-    impl_instruction_constructor!(rr_d, Opcode::Prefix, Some(PrefixedOpcode::RrD));
-    impl_instruction_constructor!(rr_e, Opcode::Prefix, Some(PrefixedOpcode::RrE));
-    impl_instruction_constructor!(srl_b, Opcode::Prefix, Some(PrefixedOpcode::SrlB));
-    impl_instruction_constructor!(swap_a, Opcode::Prefix, Some(PrefixedOpcode::SwapA));
-    impl_instruction_constructor!(rl_a, Opcode::RlA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(rr_a, Opcode::RrA, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ret, Opcode::Ret, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ret_c, Opcode::RetC, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ret_nc, Opcode::RetNc, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ret_z, Opcode::RetZ, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a16_a, Opcode::LdA16A, None::<PrefixedOpcode>);
-    impl_instruction_constructor!(ld_a16_sp, Opcode::LdA16SP, None::<PrefixedOpcode>);
+    impl_instruction_constructor!(
+        ld_bc_d16,
+        InstructionType::LdRrD16,
+        Opcode::LdBCD16,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::BC)])
+    );
+    impl_instruction_constructor!(
+        ld_de_d16,
+        InstructionType::LdRrD16,
+        Opcode::LdDED16,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::DE)])
+    );
+    impl_instruction_constructor!(
+        ld_sp_d16,
+        InstructionType::LdRrD16,
+        Opcode::LdSPD16,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::SP)])
+    );
+    impl_instruction_constructor!(
+        ld_hl_d16,
+        InstructionType::LdRrD16,
+        Opcode::LdHLD16,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::HL)])
+    );
+    impl_instruction_constructor!(
+        ld_a_d8,
+        InstructionType::LdRD8,
+        Opcode::LdAD8,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        ld_b_d8,
+        InstructionType::LdRD8,
+        Opcode::LdBD8,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        ld_c_d8,
+        InstructionType::LdRD8,
+        Opcode::LdCD8,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        ld_d_d8,
+        InstructionType::LdRD8,
+        Opcode::LdDD8,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        ld_e_d8,
+        InstructionType::LdRD8,
+        Opcode::LdED8,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        ld_h_d8,
+        InstructionType::LdRD8,
+        Opcode::LdHD8,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        ld_l_d8,
+        InstructionType::LdRD8,
+        Opcode::LdLD8,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
+    );
+    impl_instruction_constructor!(
+        ld_a_a16,
+        InstructionType::LdAA16,
+        Opcode::LdAA16,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        ld_a_b,
+        InstructionType::LdRR,
+        Opcode::LdAB,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg(Reg::B)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_a_c,
+        InstructionType::LdRR,
+        Opcode::LdAC,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg(Reg::C)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_a_d,
+        InstructionType::LdRR,
+        Opcode::LdAD,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg(Reg::D)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_a_e,
+        InstructionType::LdRR,
+        Opcode::LdAE,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg(Reg::E)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_a_h,
+        InstructionType::LdRR,
+        Opcode::LdAH,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg(Reg::H)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_a_l,
+        InstructionType::LdRR,
+        Opcode::LdAL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg(Reg::L)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_b_a,
+        InstructionType::LdRR,
+        Opcode::LdBA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::B),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_b_b,
+        InstructionType::LdRR,
+        Opcode::LdBB,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::B),
+            InstructionReg::Reg(Reg::B)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_b_c,
+        InstructionType::LdRR,
+        Opcode::LdBC,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::B),
+            InstructionReg::Reg(Reg::C)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_b_d,
+        InstructionType::LdRR,
+        Opcode::LdBD,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::B),
+            InstructionReg::Reg(Reg::D)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_b_e,
+        InstructionType::LdRR,
+        Opcode::LdBE,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::B),
+            InstructionReg::Reg(Reg::E)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_b_h,
+        InstructionType::LdRR,
+        Opcode::LdBH,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::B),
+            InstructionReg::Reg(Reg::H)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_b_l,
+        InstructionType::LdRR,
+        Opcode::LdBL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::B),
+            InstructionReg::Reg(Reg::L)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_c_a,
+        InstructionType::LdRR,
+        Opcode::LdCA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::C),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_c_b,
+        InstructionType::LdRR,
+        Opcode::LdCB,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::C),
+            InstructionReg::Reg(Reg::B)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_d_a,
+        InstructionType::LdRR,
+        Opcode::LdDA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::D),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_d_l,
+        InstructionType::LdRR,
+        Opcode::LdDL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::D),
+            InstructionReg::Reg(Reg::L)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_e_a,
+        InstructionType::LdRR,
+        Opcode::LdEA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::E),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_e_l,
+        InstructionType::LdRR,
+        Opcode::LdEL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::E),
+            InstructionReg::Reg(Reg::L)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_h_a,
+        InstructionType::LdRR,
+        Opcode::LdHA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::H),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_h_d,
+        InstructionType::LdRR,
+        Opcode::LdHD,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::H),
+            InstructionReg::Reg(Reg::D)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_l_a,
+        InstructionType::LdRR,
+        Opcode::LdLA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::L),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_l_e,
+        InstructionType::LdRR,
+        Opcode::LdLE,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::L),
+            InstructionReg::Reg(Reg::E)
+        ])
+    );
+    impl_instruction_constructor!(
+        ldh_a_a8,
+        InstructionType::LdAA8,
+        Opcode::LdhAA8,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        ldh_a8_a,
+        InstructionType::LdA8A,
+        Opcode::LdhA8A,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        ld_a_ind_c,
+        InstructionType::LdAIndC,
+        Opcode::LdAIndC,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg(Reg::C)
+        ])
+    );
+    impl_instruction_constructor!(
+        ldh_a_ind_de,
+        InstructionType::LdRIndRR,
+        Opcode::LdAIndDE,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg16(Reg16::DE)
+        ])
+    );
+    impl_instruction_constructor!(
+        ldh_a_ind_hl,
+        InstructionType::LdRIndRR,
+        Opcode::LdAIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        ldh_b_ind_hl,
+        InstructionType::LdRIndRR,
+        Opcode::LdBIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::B),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        ldh_c_ind_hl,
+        InstructionType::LdRIndRR,
+        Opcode::LdCIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::C),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        ldh_d_ind_hl,
+        InstructionType::LdRIndRR,
+        Opcode::LdDIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::D),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        ldh_e_ind_hl,
+        InstructionType::LdRIndRR,
+        Opcode::LdEIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::E),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        ldh_h_ind_hl,
+        InstructionType::LdRIndRR,
+        Opcode::LdHIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::H),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        ldh_l_ind_hl,
+        InstructionType::LdRIndRR,
+        Opcode::LdLIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::L),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        push_af,
+        InstructionType::PushRr,
+        Opcode::PushAF,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::AF)])
+    );
+    impl_instruction_constructor!(
+        push_bc,
+        InstructionType::PushRr,
+        Opcode::PushBC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::BC)])
+    );
+    impl_instruction_constructor!(
+        push_de,
+        InstructionType::PushRr,
+        Opcode::PushDE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::DE)])
+    );
+    impl_instruction_constructor!(
+        push_hl,
+        InstructionType::PushRr,
+        Opcode::PushHL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::HL)])
+    );
+    impl_instruction_constructor!(
+        pop_af,
+        InstructionType::PopRr,
+        Opcode::PopAF,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::AF)])
+    );
+    impl_instruction_constructor!(
+        pop_bc,
+        InstructionType::PopRr,
+        Opcode::PopBC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::BC)])
+    );
+    impl_instruction_constructor!(
+        pop_de,
+        InstructionType::PopRr,
+        Opcode::PopDE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::DE)])
+    );
+    impl_instruction_constructor!(
+        pop_hl,
+        InstructionType::PopRr,
+        Opcode::PopHL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::HL)])
+    );
+    impl_instruction_constructor!(
+        ld_ind_de_a,
+        InstructionType::LdIndRrR,
+        Opcode::LdIndDEA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::DE),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_ind_hl_a,
+        InstructionType::LdIndRrR,
+        Opcode::LdIndHLA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_ind_hl_b,
+        InstructionType::LdIndRrR,
+        Opcode::LdIndHLB,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg(Reg::B)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_ind_hl_c,
+        InstructionType::LdIndRrR,
+        Opcode::LdIndHLC,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg(Reg::C)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_ind_hl_d,
+        InstructionType::LdIndRrR,
+        Opcode::LdIndHLD,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg(Reg::D)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_ind_hl_e,
+        InstructionType::LdIndRrR,
+        Opcode::LdIndHLE,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg(Reg::E)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_ind_hl_d8,
+        InstructionType::LdIndHlD8,
+        Opcode::LdIndHLD8,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::HL)])
+    );
+    impl_instruction_constructor!(
+        ld_ind_hl_dec_a,
+        InstructionType::LdIndHlDecA,
+        Opcode::LdIndHLDecA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_ind_hl_inc_a,
+        InstructionType::LdIndHLIncA,
+        Opcode::LdIndHLIncA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg(Reg::A)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_a_ind_hl_inc,
+        InstructionType::LdAIndHLInc,
+        Opcode::LdAIndHLInc,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_ind_c_a,
+        InstructionType::LdIndCA,
+        Opcode::LdIndCA,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg(Reg::C)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_hl_sp_e8,
+        InstructionType::LdHLSPE8,
+        Opcode::LdHLSPE8,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg16(Reg16::SP)
+        ])
+    );
+    impl_instruction_constructor!(
+        ld_sp_hl,
+        InstructionType::LdRrRr,
+        Opcode::LdSPHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::SP),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        inc_a,
+        InstructionType::IncR,
+        Opcode::IncA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        inc_b,
+        InstructionType::IncR,
+        Opcode::IncB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        inc_c,
+        InstructionType::IncR,
+        Opcode::IncC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        inc_d,
+        InstructionType::IncR,
+        Opcode::IncD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        inc_e,
+        InstructionType::IncR,
+        Opcode::IncE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        inc_h,
+        InstructionType::IncR,
+        Opcode::IncH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        inc_l,
+        InstructionType::IncR,
+        Opcode::IncL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
+    );
+    impl_instruction_constructor!(
+        inc_bc,
+        InstructionType::IncRr,
+        Opcode::IncBC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::BC)])
+    );
+    impl_instruction_constructor!(
+        inc_de,
+        InstructionType::IncRr,
+        Opcode::IncDE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::DE)])
+    );
+    impl_instruction_constructor!(
+        inc_hl,
+        InstructionType::IncRr,
+        Opcode::IncHL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::HL)])
+    );
+    impl_instruction_constructor!(
+        inc_sp,
+        InstructionType::IncRr,
+        Opcode::IncSP,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::SP)])
+    );
+    impl_instruction_constructor!(
+        daa,
+        InstructionType::Daa,
+        Opcode::Daa,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        dec_a,
+        InstructionType::DecR,
+        Opcode::DecA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        dec_b,
+        InstructionType::DecR,
+        Opcode::DecB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        dec_c,
+        InstructionType::DecR,
+        Opcode::DecC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        dec_d,
+        InstructionType::DecR,
+        Opcode::DecD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        dec_e,
+        InstructionType::DecR,
+        Opcode::DecE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        dec_h,
+        InstructionType::DecR,
+        Opcode::DecH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        dec_l,
+        InstructionType::DecR,
+        Opcode::DecL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
+    );
+    impl_instruction_constructor!(
+        dec_bc,
+        InstructionType::DecRr,
+        Opcode::DecBC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::BC)])
+    );
+    impl_instruction_constructor!(
+        dec_de,
+        InstructionType::DecRr,
+        Opcode::DecDE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::DE)])
+    );
+    impl_instruction_constructor!(
+        dec_hl,
+        InstructionType::DecRr,
+        Opcode::DecHL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::HL)])
+    );
+    impl_instruction_constructor!(
+        dec_sp,
+        InstructionType::DecRr,
+        Opcode::DecSP,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::SP)])
+    );
+    impl_instruction_constructor!(
+        dec_ind_hl,
+        InstructionType::DecIndHl,
+        Opcode::DecIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::HL)])
+    );
+    impl_instruction_constructor!(
+        adc_d8,
+        InstructionType::AdcD8,
+        Opcode::AdcD8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        add_b,
+        InstructionType::AddR,
+        Opcode::AddB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        add_d8,
+        InstructionType::AddD8,
+        Opcode::AddD8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        add_hl_bc,
+        InstructionType::AddRrRr,
+        Opcode::AddHLBC,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg16(Reg16::BC)
+        ])
+    );
+    impl_instruction_constructor!(
+        add_hl_de,
+        InstructionType::AddRrRr,
+        Opcode::AddHLDE,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg16(Reg16::DE)
+        ])
+    );
+    impl_instruction_constructor!(
+        add_hl_hl,
+        InstructionType::AddRrRr,
+        Opcode::AddHLHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        add_hl_sp,
+        InstructionType::AddRrRr,
+        Opcode::AddHLSP,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg16(Reg16::HL),
+            InstructionReg::Reg16(Reg16::SP)
+        ])
+    );
+    impl_instruction_constructor!(
+        add_sp_e8,
+        InstructionType::AddSpE8,
+        Opcode::AddSPE8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        add_a_ind_hl,
+        InstructionType::AddAIndHl,
+        Opcode::AddAIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        and_d8,
+        InstructionType::AndD8,
+        Opcode::AndD8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        sbc_d8,
+        InstructionType::SbcD8,
+        Opcode::SbcD8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        sub_d8,
+        InstructionType::SubD8,
+        Opcode::SubD8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        sub_b,
+        InstructionType::SubR,
+        Opcode::SubB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        or_a,
+        InstructionType::OrR,
+        Opcode::OrA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        or_b,
+        InstructionType::OrR,
+        Opcode::OrB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        or_c,
+        InstructionType::OrR,
+        Opcode::OrC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        or_a_ind_hl,
+        InstructionType::OrAIndHl,
+        Opcode::OrAIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        or_d8,
+        InstructionType::OrD8,
+        Opcode::OrD8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        xor_a,
+        InstructionType::XorR,
+        Opcode::XorA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        xor_c,
+        InstructionType::XorR,
+        Opcode::XorC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        xor_l,
+        InstructionType::XorR,
+        Opcode::XorL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
+    );
+    impl_instruction_constructor!(
+        xor_d8,
+        InstructionType::XorD8,
+        Opcode::XorD8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        xor_a_ind_hl,
+        InstructionType::XorAIndHl,
+        Opcode::XorAIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        cp_e,
+        InstructionType::CpR,
+        Opcode::CpE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        cp_d8,
+        InstructionType::CpD8,
+        Opcode::CpD8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        cp_a_ind_hl,
+        InstructionType::CpAIndHl,
+        Opcode::CpAIndHL,
+        None::<PrefixedOpcode>,
+        Some(vec![
+            InstructionReg::Reg(Reg::A),
+            InstructionReg::Reg16(Reg16::HL)
+        ])
+    );
+    impl_instruction_constructor!(
+        cpl,
+        InstructionType::Cpl,
+        Opcode::Cpl,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        scf,
+        InstructionType::Scf,
+        Opcode::Scf,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jr_r8,
+        InstructionType::Jr,
+        Opcode::JrR8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jr_c_r8,
+        InstructionType::Jr,
+        Opcode::JrCR8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jr_nc_r8,
+        InstructionType::Jr,
+        Opcode::JrNcR8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jr_nz_r8,
+        InstructionType::Jr,
+        Opcode::JrNzR8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jr_z_r8,
+        InstructionType::Jr,
+        Opcode::JrZR8,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jp_a16,
+        InstructionType::Jp,
+        Opcode::JpA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jp_nz_a16,
+        InstructionType::Jp,
+        Opcode::JpNzA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jp_hl,
+        InstructionType::Jp,
+        Opcode::JpHL,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        call_a16,
+        InstructionType::Call,
+        Opcode::CallA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        call_nz_a16,
+        InstructionType::Call,
+        Opcode::CallNzA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        di,
+        InstructionType::Di,
+        Opcode::Di,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        ei,
+        InstructionType::Ei,
+        Opcode::Ei,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        bit0d,
+        InstructionType::Bit0R,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::Bit0D),
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        bit7h,
+        InstructionType::Bit7R,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::Bit7H),
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        rl_a,
+        InstructionType::RlR,
+        Opcode::RlA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        rl_c,
+        InstructionType::RlR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RlC),
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        rr_a,
+        InstructionType::RrR,
+        Opcode::RrA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        rr_c,
+        InstructionType::RrR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrC),
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        rr_d,
+        InstructionType::RrR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrD),
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        rr_e,
+        InstructionType::RrR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrE),
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        srl_b,
+        InstructionType::SrlR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::SrlB),
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        swap_a,
+        InstructionType::SwapR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::SwapA),
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        ret,
+        InstructionType::Ret,
+        Opcode::Ret,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        ret_c,
+        InstructionType::Ret,
+        Opcode::RetC,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        ret_nc,
+        InstructionType::Ret,
+        Opcode::RetNc,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        ret_z,
+        InstructionType::Ret,
+        Opcode::RetZ,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        ld_a16_a,
+        InstructionType::LdA16A,
+        Opcode::LdA16A,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        ld_a16_sp,
+        InstructionType::LdA16Sp,
+        Opcode::LdA16SP,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg16(Reg16::SP)])
+    );
 }
 
 #[derive(Debug)]
@@ -323,19 +1468,19 @@ pub enum Opcode {
     LdA16SP,
 
     // 8-bit arithmetic and logical instructions
-    AdcAD8,
-    AddAB,
+    AdcD8,
+    AddB,
     AddAIndHL,
-    AddAD8,
+    AddD8,
     AddHLBC,
     AddHLDE,
     AddHLHL,
     AddHLSP,
     AddSPE8,
-    AndAD8,
+    AndD8,
     SbcD8,
     SubD8,
-    SubAB,
+    SubB,
     IncA,
     IncB,
     IncC,
@@ -368,9 +1513,9 @@ pub enum Opcode {
     XorA,
     XorC,
     XorL,
-    XorAD8,
+    XorD8,
     XorAIndHL,
-    CpAE,
+    CpE,
     CpD8,
     CpAIndHL,
     Cpl,
@@ -493,23 +1638,23 @@ impl Opcode {
             Opcode::XorA => 0,
             Opcode::XorC => 0,
             Opcode::XorL => 0,
-            Opcode::XorAD8 => 1,
+            Opcode::XorD8 => 1,
             Opcode::XorAIndHL => 0,
             Opcode::LdIndCA => 0,
-            Opcode::AdcAD8 => 1,
-            Opcode::AddAB => 0,
-            Opcode::AddAD8 => 1,
+            Opcode::AdcD8 => 1,
+            Opcode::AddB => 0,
+            Opcode::AddD8 => 1,
             Opcode::AddHLBC => 0,
             Opcode::AddHLDE => 0,
             Opcode::AddHLHL => 0,
             Opcode::AddHLSP => 0,
             Opcode::AddSPE8 => 1,
             Opcode::AddAIndHL => 0,
-            Opcode::AndAD8 => 1,
+            Opcode::AndD8 => 1,
             Opcode::SbcD8 => 1,
             Opcode::SubD8 => 1,
-            Opcode::SubAB => 0,
-            Opcode::CpAE => 0,
+            Opcode::SubB => 0,
+            Opcode::CpE => 0,
             Opcode::CpD8 => 1,
             Opcode::CpAIndHL => 0,
             Opcode::Cpl => 0,
@@ -633,7 +1778,7 @@ impl Opcode {
             Opcode::XorA => 4,
             Opcode::XorC => 4,
             Opcode::XorL => 4,
-            Opcode::XorAD8 => 8,
+            Opcode::XorD8 => 8,
             Opcode::XorAIndHL => 8,
             Opcode::LdIndCA => 8,
             Opcode::LdAIndC => 8,
@@ -645,20 +1790,20 @@ impl Opcode {
             Opcode::LdEIndHL => 8,
             Opcode::LdHIndHL => 8,
             Opcode::LdLIndHL => 8,
-            Opcode::AdcAD8 => 8,
-            Opcode::AddAB => 4,
-            Opcode::AddAD8 => 8,
+            Opcode::AdcD8 => 8,
+            Opcode::AddB => 4,
+            Opcode::AddD8 => 8,
             Opcode::AddHLBC => 8,
             Opcode::AddHLDE => 8,
             Opcode::AddHLHL => 8,
             Opcode::AddSPE8 => 16,
             Opcode::AddHLSP => 8,
             Opcode::AddAIndHL => 8,
-            Opcode::AndAD8 => 8,
+            Opcode::AndD8 => 8,
             Opcode::SbcD8 => 8,
             Opcode::SubD8 => 8,
-            Opcode::SubAB => 4,
-            Opcode::CpAE => 4,
+            Opcode::SubB => 4,
+            Opcode::CpE => 4,
             Opcode::CpD8 => 8,
             Opcode::Cpl => 4,
             Opcode::Scf => 4,
@@ -781,10 +1926,10 @@ impl TryFrom<&u8> for Opcode {
             0x7d => Ok(Opcode::LdAL),
             0x7e => Ok(Opcode::LdAIndHL),
 
-            0x80 => Ok(Opcode::AddAB),
+            0x80 => Ok(Opcode::AddB),
             0x86 => Ok(Opcode::AddAIndHL),
 
-            0x90 => Ok(Opcode::SubAB),
+            0x90 => Ok(Opcode::SubB),
 
             0xad => Ok(Opcode::XorL),
             0xa9 => Ok(Opcode::XorC),
@@ -795,7 +1940,7 @@ impl TryFrom<&u8> for Opcode {
             0xb1 => Ok(Opcode::OrC),
             0xb6 => Ok(Opcode::OrAIndHL),
             0xb7 => Ok(Opcode::OrA),
-            0xbb => Ok(Opcode::CpAE),
+            0xbb => Ok(Opcode::CpE),
             0xbe => Ok(Opcode::CpAIndHL),
 
             0xc1 => Ok(Opcode::PopBC),
@@ -803,11 +1948,11 @@ impl TryFrom<&u8> for Opcode {
             0xc3 => Ok(Opcode::JpA16),
             0xc4 => Ok(Opcode::CallNzA16),
             0xc5 => Ok(Opcode::PushBC),
-            0xc6 => Ok(Opcode::AddAD8),
+            0xc6 => Ok(Opcode::AddD8),
             0xc8 => Ok(Opcode::RetZ),
             0xc9 => Ok(Opcode::Ret),
             0xcb => Ok(Opcode::Prefix),
-            0xce => Ok(Opcode::AdcAD8),
+            0xce => Ok(Opcode::AdcD8),
             0xcd => Ok(Opcode::CallA16),
 
             0xd0 => Ok(Opcode::RetNc),
@@ -822,7 +1967,7 @@ impl TryFrom<&u8> for Opcode {
             0xe2 => Ok(Opcode::LdIndCA),
             0xe5 => Ok(Opcode::PushHL),
             0xe9 => Ok(Opcode::JpHL),
-            0xe6 => Ok(Opcode::AndAD8),
+            0xe6 => Ok(Opcode::AndD8),
             0xe8 => Ok(Opcode::AddSPE8),
             0xea => Ok(Opcode::LdA16A),
 
@@ -838,7 +1983,7 @@ impl TryFrom<&u8> for Opcode {
             0xfb => Ok(Opcode::Ei),
             0xfe => Ok(Opcode::CpD8),
 
-            0xee => Ok(Opcode::XorAD8),
+            0xee => Ok(Opcode::XorD8),
             _ => Err(InstructionError::UnrecognizedOpcode(*value)),
         }
     }
