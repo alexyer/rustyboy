@@ -485,6 +485,7 @@ impl Cpu {
                 Some(Instruction::add_sp_e8(data))
             }
             Opcode::LdSPHL => Some(Instruction::ld_sp_hl(&[])),
+            Opcode::LdAA => Some(Instruction::ld_a_a(&[])),
             Opcode::LdAB => Some(Instruction::ld_a_b(&[])),
             Opcode::LdAC => Some(Instruction::ld_a_c(&[])),
             Opcode::LdAD => Some(Instruction::ld_a_d(&[])),
@@ -500,14 +501,39 @@ impl Cpu {
             Opcode::LdBL => Some(Instruction::ld_b_l(&[])),
             Opcode::LdCA => Some(Instruction::ld_c_a(&[])),
             Opcode::LdCB => Some(Instruction::ld_c_b(&[])),
+            Opcode::LdCC => Some(Instruction::ld_c_c(&[])),
+            Opcode::LdCD => Some(Instruction::ld_c_d(&[])),
+            Opcode::LdCE => Some(Instruction::ld_c_e(&[])),
+            Opcode::LdCH => Some(Instruction::ld_c_h(&[])),
+            Opcode::LdCL => Some(Instruction::ld_c_l(&[])),
             Opcode::LdDA => Some(Instruction::ld_d_a(&[])),
+            Opcode::LdDB => Some(Instruction::ld_d_b(&[])),
+            Opcode::LdDC => Some(Instruction::ld_d_c(&[])),
+            Opcode::LdDD => Some(Instruction::ld_d_d(&[])),
+            Opcode::LdDE => Some(Instruction::ld_d_e(&[])),
+            Opcode::LdDH => Some(Instruction::ld_d_h(&[])),
             Opcode::LdDL => Some(Instruction::ld_d_l(&[])),
             Opcode::LdEA => Some(Instruction::ld_e_a(&[])),
+            Opcode::LdEB => Some(Instruction::ld_e_b(&[])),
+            Opcode::LdEC => Some(Instruction::ld_e_c(&[])),
+            Opcode::LdED => Some(Instruction::ld_e_d(&[])),
+            Opcode::LdEE => Some(Instruction::ld_e_e(&[])),
+            Opcode::LdEH => Some(Instruction::ld_e_h(&[])),
             Opcode::LdEL => Some(Instruction::ld_e_l(&[])),
             Opcode::LdHA => Some(Instruction::ld_h_a(&[])),
+            Opcode::LdHB => Some(Instruction::ld_h_b(&[])),
+            Opcode::LdHC => Some(Instruction::ld_h_c(&[])),
             Opcode::LdHD => Some(Instruction::ld_h_d(&[])),
+            Opcode::LdHE => Some(Instruction::ld_h_e(&[])),
+            Opcode::LdHH => Some(Instruction::ld_h_h(&[])),
+            Opcode::LdHL => Some(Instruction::ld_h_l(&[])),
             Opcode::LdLA => Some(Instruction::ld_l_a(&[])),
+            Opcode::LdLB => Some(Instruction::ld_l_b(&[])),
+            Opcode::LdLC => Some(Instruction::ld_l_c(&[])),
+            Opcode::LdLD => Some(Instruction::ld_l_d(&[])),
             Opcode::LdLE => Some(Instruction::ld_l_e(&[])),
+            Opcode::LdLH => Some(Instruction::ld_l_h(&[])),
+            Opcode::LdLL => Some(Instruction::ld_l_l(&[])),
             Opcode::PushAF => Some(Instruction::push_af(&[])),
             Opcode::PushBC => Some(Instruction::push_bc(&[])),
             Opcode::PushDE => Some(Instruction::push_de(&[])),
@@ -629,6 +655,8 @@ impl Cpu {
             Opcode::LdIndHLC => Some(Instruction::ld_ind_hl_c(&[])),
             Opcode::LdIndHLD => Some(Instruction::ld_ind_hl_d(&[])),
             Opcode::LdIndHLE => Some(Instruction::ld_ind_hl_e(&[])),
+            Opcode::LdIndHLH => Some(Instruction::ld_ind_hl_h(&[])),
+            Opcode::LdIndHLL => Some(Instruction::ld_ind_hl_l(&[])),
             Opcode::LdIndHLD8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
@@ -1979,14 +2007,34 @@ mod tests {
     test_ld_r_r!(Reg::B, Reg::L, &[0x45], test_ld_b_l);
     test_ld_r_r!(Reg::C, Reg::A, &[0x4f], test_ld_c_a);
     test_ld_r_r!(Reg::C, Reg::B, &[0x48], test_ld_c_b);
+    test_ld_r_r!(Reg::C, Reg::D, &[0x4a], test_ld_c_d);
+    test_ld_r_r!(Reg::C, Reg::E, &[0x4b], test_ld_c_e);
+    test_ld_r_r!(Reg::C, Reg::H, &[0x4c], test_ld_c_h);
+    test_ld_r_r!(Reg::C, Reg::L, &[0x4d], test_ld_c_l);
     test_ld_r_r!(Reg::D, Reg::A, &[0x57], test_ld_d_a);
+    test_ld_r_r!(Reg::D, Reg::B, &[0x50], test_ld_d_b);
+    test_ld_r_r!(Reg::D, Reg::C, &[0x51], test_ld_d_c);
+    test_ld_r_r!(Reg::D, Reg::E, &[0x53], test_ld_d_e);
+    test_ld_r_r!(Reg::D, Reg::H, &[0x54], test_ld_d_h);
     test_ld_r_r!(Reg::D, Reg::L, &[0x55], test_ld_d_l);
     test_ld_r_r!(Reg::E, Reg::A, &[0x5f], test_ld_e_a);
+    test_ld_r_r!(Reg::E, Reg::B, &[0x58], test_ld_e_b);
+    test_ld_r_r!(Reg::E, Reg::C, &[0x59], test_ld_e_c);
+    test_ld_r_r!(Reg::E, Reg::D, &[0x5a], test_ld_e_d);
+    test_ld_r_r!(Reg::E, Reg::H, &[0x5c], test_ld_e_h);
     test_ld_r_r!(Reg::E, Reg::L, &[0x5d], test_ld_e_l);
     test_ld_r_r!(Reg::H, Reg::A, &[0x67], test_ld_h_a);
+    test_ld_r_r!(Reg::H, Reg::B, &[0x60], test_ld_h_b);
+    test_ld_r_r!(Reg::H, Reg::C, &[0x61], test_ld_h_c);
     test_ld_r_r!(Reg::H, Reg::D, &[0x62], test_ld_h_d);
+    test_ld_r_r!(Reg::H, Reg::E, &[0x63], test_ld_h_e);
+    test_ld_r_r!(Reg::H, Reg::L, &[0x65], test_ld_h_l);
     test_ld_r_r!(Reg::L, Reg::A, &[0x6f], test_ld_l_a);
+    test_ld_r_r!(Reg::L, Reg::B, &[0x68], test_ld_l_b);
+    test_ld_r_r!(Reg::L, Reg::C, &[0x69], test_ld_l_c);
+    test_ld_r_r!(Reg::L, Reg::D, &[0x6a], test_ld_l_d);
     test_ld_r_r!(Reg::L, Reg::E, &[0x6b], test_ld_l_e);
+    test_ld_r_r!(Reg::L, Reg::H, &[0x6c], test_ld_l_h);
 
     test_ld_r_d8!(Reg::C, &[0x0e, 0xff], test_ld_c_d8);
     test_ld_r_d8!(Reg::D, &[0x16, 0xff], test_ld_d_d8);
