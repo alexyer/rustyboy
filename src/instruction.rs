@@ -107,6 +107,7 @@ pub enum InstructionType {
     Bit7R,
     RlR,
     RrR,
+    Rst,
     SrlR,
     SwapR,
 }
@@ -1495,9 +1496,30 @@ impl Instruction {
         None
     );
     impl_instruction_constructor!(
+        jp_nc_a16,
+        InstructionType::Jp,
+        Opcode::JpNcA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
         jp_nz_a16,
         InstructionType::Jp,
         Opcode::JpNzA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jp_c_a16,
+        InstructionType::Jp,
+        Opcode::JpCA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        jp_z_a16,
+        InstructionType::Jp,
+        Opcode::JpZA16,
         None::<PrefixedOpcode>,
         None
     );
@@ -1512,6 +1534,27 @@ impl Instruction {
         call_a16,
         InstructionType::Call,
         Opcode::CallA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        call_c_a16,
+        InstructionType::Call,
+        Opcode::CallCA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        call_z_a16,
+        InstructionType::Call,
+        Opcode::CallZA16,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        call_nc_a16,
+        InstructionType::Call,
+        Opcode::CallNcA16,
         None::<PrefixedOpcode>,
         None
     );
@@ -1614,6 +1657,13 @@ impl Instruction {
         None
     );
     impl_instruction_constructor!(
+        reti,
+        InstructionType::Ret,
+        Opcode::Reti,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
         ret_c,
         InstructionType::Ret,
         Opcode::RetC,
@@ -1628,9 +1678,24 @@ impl Instruction {
         None
     );
     impl_instruction_constructor!(
+        ret_nz,
+        InstructionType::Ret,
+        Opcode::RetNz,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
         ret_z,
         InstructionType::Ret,
         Opcode::RetZ,
+        None::<PrefixedOpcode>,
+        None
+    );
+
+    impl_instruction_constructor!(
+        rst00,
+        InstructionType::Rst,
+        Opcode::Rst00,
         None::<PrefixedOpcode>,
         None
     );
@@ -1665,14 +1730,23 @@ pub enum Opcode {
     JrCR8,
     JrZR8,
     JpA16,
+    JpCA16,
+    JpNcA16,
     JpNzA16,
+    JpZA16,
     JpHL,
     CallA16,
+    CallCA16,
+    CallZA16,
+    CallNcA16,
     CallNzA16,
     Ret,
+    Reti,
     RetC,
     RetNc,
     RetZ,
+    RetNz,
+    Rst00,
 
     // 8-bit load instructions
     LdAD8,
@@ -1846,7 +1920,10 @@ impl Opcode {
             Opcode::JrCR8 => 1,
             Opcode::JrZR8 => 1,
             Opcode::JpA16 => 2,
+            Opcode::JpCA16 => 2,
+            Opcode::JpNcA16 => 2,
             Opcode::JpNzA16 => 2,
+            Opcode::JpZA16 => 2,
             Opcode::JpHL => 0,
             Opcode::LdAD8 => 1,
             Opcode::LdBD8 => 1,
@@ -1996,13 +2073,19 @@ impl Opcode {
             Opcode::Cpl => 0,
             Opcode::Scf => 0,
             Opcode::CallA16 => 2,
+            Opcode::CallCA16 => 2,
+            Opcode::CallZA16 => 2,
+            Opcode::CallNcA16 => 2,
             Opcode::CallNzA16 => 2,
             Opcode::RlA => 0,
             Opcode::RrA => 0,
             Opcode::Ret => 0,
+            Opcode::Reti => 0,
             Opcode::RetC => 0,
             Opcode::RetNc => 0,
             Opcode::RetZ => 0,
+            Opcode::RetNz => 0,
+            Opcode::Rst00 => 0,
             Opcode::LdA16A => 2,
             Opcode::LdAIndHLInc => 0,
         }
@@ -2023,7 +2106,10 @@ impl Opcode {
             // FIXME(alexyer): Dynamic cycles
             Opcode::JrNzR8 => 12,
             Opcode::JpA16 => 16,
+            Opcode::JpCA16 => 16,
+            Opcode::JpNcA16 => 16,
             Opcode::JpNzA16 => 16,
+            Opcode::JpZA16 => 16,
             Opcode::JpHL => 4,
             Opcode::LdAD8 => 8,
             Opcode::LdBD8 => 8,
@@ -2173,13 +2259,19 @@ impl Opcode {
             Opcode::Scf => 4,
             Opcode::CpAIndHL => 8,
             Opcode::CallA16 => 24,
+            Opcode::CallCA16 => 24,
+            Opcode::CallZA16 => 24,
+            Opcode::CallNcA16 => 24,
             Opcode::CallNzA16 => 24,
             Opcode::RlA => 4,
             Opcode::RrA => 4,
             Opcode::Ret => 16,
+            Opcode::Reti => 16,
             Opcode::RetC => 20,
             Opcode::RetNc => 20,
             Opcode::RetZ => 20,
+            Opcode::RetNz => 20,
+            Opcode::Rst00 => 16,
             Opcode::LdA16A => 16,
             Opcode::LdAIndHLInc => 8,
         }
@@ -2335,23 +2427,32 @@ impl TryFrom<&u8> for Opcode {
             0xbb => Ok(Opcode::CpE),
             0xbe => Ok(Opcode::CpAIndHL),
 
+            0xc0 => Ok(Opcode::RetNz),
             0xc1 => Ok(Opcode::PopBC),
             0xc2 => Ok(Opcode::JpNzA16),
             0xc3 => Ok(Opcode::JpA16),
             0xc4 => Ok(Opcode::CallNzA16),
             0xc5 => Ok(Opcode::PushBC),
             0xc6 => Ok(Opcode::AddD8),
+            0xc7 => Ok(Opcode::Rst00),
             0xc8 => Ok(Opcode::RetZ),
             0xc9 => Ok(Opcode::Ret),
+            0xca => Ok(Opcode::JpZA16),
             0xcb => Ok(Opcode::Prefix),
+            0xcc => Ok(Opcode::CallZA16),
             0xce => Ok(Opcode::AdcD8),
             0xcd => Ok(Opcode::CallA16),
 
             0xd0 => Ok(Opcode::RetNc),
             0xd1 => Ok(Opcode::PopDE),
+            0xd2 => Ok(Opcode::JpNcA16),
+            0xd4 => Ok(Opcode::CallNcA16),
             0xd5 => Ok(Opcode::PushDE),
             0xd6 => Ok(Opcode::SubD8),
             0xd8 => Ok(Opcode::RetC),
+            0xd9 => Ok(Opcode::Reti),
+            0xda => Ok(Opcode::JpCA16),
+            0xdc => Ok(Opcode::CallCA16),
             0xde => Ok(Opcode::SbcD8),
 
             0xe0 => Ok(Opcode::LdhA8A),
