@@ -76,13 +76,16 @@ pub enum InstructionType {
     DecR,
     DecRr,
     DecIndHl,
+    AdcR,
     AdcD8,
     AddR,
     AddD8,
     AddRrRr,
     AddSpE8,
     AddAIndHl,
+    AndR,
     AndD8,
+    SbcR,
     SbcD8,
     SubD8,
     SubR,
@@ -96,6 +99,7 @@ pub enum InstructionType {
     CpD8,
     CpAIndHl,
     Cpl,
+    Ccf,
     Scf,
     Jr,
     Jp,
@@ -106,7 +110,9 @@ pub enum InstructionType {
     Bit0R,
     Bit7R,
     RlR,
+    RlcR,
     RrR,
+    RrcR,
     Rst,
     SrlR,
     SwapR,
@@ -1234,6 +1240,55 @@ impl Instruction {
         Some(vec![InstructionReg::Reg16(Reg16::HL)])
     );
     impl_instruction_constructor!(
+        adc_a,
+        InstructionType::AdcR,
+        Opcode::AdcA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        adc_b,
+        InstructionType::AdcR,
+        Opcode::AdcB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        adc_c,
+        InstructionType::AdcR,
+        Opcode::AdcC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        adc_d,
+        InstructionType::AdcR,
+        Opcode::AdcD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        adc_e,
+        InstructionType::AdcR,
+        Opcode::AdcE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        adc_h,
+        InstructionType::AdcR,
+        Opcode::AdcH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        adc_l,
+        InstructionType::AdcR,
+        Opcode::AdcL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
+    );
+    impl_instruction_constructor!(
         adc_d8,
         InstructionType::AdcD8,
         Opcode::AdcD8,
@@ -1241,11 +1296,53 @@ impl Instruction {
         None
     );
     impl_instruction_constructor!(
+        add_a,
+        InstructionType::AddR,
+        Opcode::AddA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
         add_b,
         InstructionType::AddR,
         Opcode::AddB,
         None::<PrefixedOpcode>,
         Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        add_c,
+        InstructionType::AddR,
+        Opcode::AddC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        add_d,
+        InstructionType::AddR,
+        Opcode::AddD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        add_e,
+        InstructionType::AddR,
+        Opcode::AddE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        add_h,
+        InstructionType::AddR,
+        Opcode::AddH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        add_l,
+        InstructionType::AddR,
+        Opcode::AddL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
     );
     impl_instruction_constructor!(
         add_d8,
@@ -1312,11 +1409,109 @@ impl Instruction {
         ])
     );
     impl_instruction_constructor!(
+        and_a,
+        InstructionType::AndR,
+        Opcode::AndA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        and_b,
+        InstructionType::AndR,
+        Opcode::AndB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        and_c,
+        InstructionType::AndR,
+        Opcode::AndC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        and_d,
+        InstructionType::AndR,
+        Opcode::AndD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        and_e,
+        InstructionType::AndR,
+        Opcode::AndE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        and_h,
+        InstructionType::AndR,
+        Opcode::AndH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        and_l,
+        InstructionType::AndR,
+        Opcode::AndL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
+    );
+    impl_instruction_constructor!(
         and_d8,
         InstructionType::AndD8,
         Opcode::AndD8,
         None::<PrefixedOpcode>,
         None
+    );
+    impl_instruction_constructor!(
+        sbc_a,
+        InstructionType::SbcR,
+        Opcode::SbcA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        sbc_b,
+        InstructionType::SbcR,
+        Opcode::SbcB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        sbc_c,
+        InstructionType::SbcR,
+        Opcode::SbcC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        sbc_d,
+        InstructionType::SbcR,
+        Opcode::SbcD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        sbc_e,
+        InstructionType::SbcR,
+        Opcode::SbcE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        sbc_h,
+        InstructionType::SbcR,
+        Opcode::SbcH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        sbc_l,
+        InstructionType::SbcR,
+        Opcode::SbcL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
     );
     impl_instruction_constructor!(
         sbc_d8,
@@ -1333,11 +1528,53 @@ impl Instruction {
         None
     );
     impl_instruction_constructor!(
+        sub_a,
+        InstructionType::SubR,
+        Opcode::SubA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
         sub_b,
         InstructionType::SubR,
         Opcode::SubB,
         None::<PrefixedOpcode>,
         Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        sub_c,
+        InstructionType::SubR,
+        Opcode::SubC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        sub_d,
+        InstructionType::SubR,
+        Opcode::SubD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        sub_e,
+        InstructionType::SubR,
+        Opcode::SubE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        sub_h,
+        InstructionType::SubR,
+        Opcode::SubH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        sub_l,
+        InstructionType::SubR,
+        Opcode::SubL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
     );
     impl_instruction_constructor!(
         or_a,
@@ -1359,6 +1596,34 @@ impl Instruction {
         Opcode::OrC,
         None::<PrefixedOpcode>,
         Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        or_d,
+        InstructionType::OrR,
+        Opcode::OrD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        or_e,
+        InstructionType::OrR,
+        Opcode::OrE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        or_h,
+        InstructionType::OrR,
+        Opcode::OrH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        or_l,
+        InstructionType::OrR,
+        Opcode::OrL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
     );
     impl_instruction_constructor!(
         or_a_ind_hl,
@@ -1385,11 +1650,39 @@ impl Instruction {
         Some(vec![InstructionReg::Reg(Reg::A)])
     );
     impl_instruction_constructor!(
+        xor_b,
+        InstructionType::XorR,
+        Opcode::XorB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
         xor_c,
         InstructionType::XorR,
         Opcode::XorC,
         None::<PrefixedOpcode>,
         Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        xor_d,
+        InstructionType::XorR,
+        Opcode::XorD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        xor_e,
+        InstructionType::XorR,
+        Opcode::XorE,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        xor_h,
+        InstructionType::XorR,
+        Opcode::XorH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
     );
     impl_instruction_constructor!(
         xor_l,
@@ -1416,11 +1709,53 @@ impl Instruction {
         ])
     );
     impl_instruction_constructor!(
+        cp_a,
+        InstructionType::CpR,
+        Opcode::CpA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        cp_b,
+        InstructionType::CpR,
+        Opcode::CpB,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        cp_c,
+        InstructionType::CpR,
+        Opcode::CpC,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        cp_d,
+        InstructionType::CpR,
+        Opcode::CpD,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
         cp_e,
         InstructionType::CpR,
         Opcode::CpE,
         None::<PrefixedOpcode>,
         Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        cp_h,
+        InstructionType::CpR,
+        Opcode::CpH,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        cp_l,
+        InstructionType::CpR,
+        Opcode::CpL,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::L)])
     );
     impl_instruction_constructor!(
         cp_d8,
@@ -1443,6 +1778,13 @@ impl Instruction {
         cpl,
         InstructionType::Cpl,
         Opcode::Cpl,
+        None::<PrefixedOpcode>,
+        None
+    );
+    impl_instruction_constructor!(
+        ccf,
+        InstructionType::Ccf,
+        Opcode::Ccf,
         None::<PrefixedOpcode>,
         None
     );
@@ -1608,6 +1950,13 @@ impl Instruction {
         Some(vec![InstructionReg::Reg(Reg::C)])
     );
     impl_instruction_constructor!(
+        rlc_a,
+        InstructionType::RlcR,
+        Opcode::RlcA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
         rr_a,
         InstructionType::RrR,
         Opcode::RrA,
@@ -1634,6 +1983,13 @@ impl Instruction {
         Opcode::Prefix,
         Some(PrefixedOpcode::RrE),
         Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        rrc_a,
+        InstructionType::RrcR,
+        Opcode::RrcA,
+        None::<PrefixedOpcode>,
+        Some(vec![InstructionReg::Reg(Reg::A)])
     );
     impl_instruction_constructor!(
         srl_b,
@@ -1850,8 +2206,21 @@ pub enum Opcode {
     LdA16SP,
 
     // 8-bit arithmetic and logical instructions
+    AdcA,
+    AdcB,
+    AdcC,
+    AdcD,
+    AdcE,
+    AdcH,
+    AdcL,
     AdcD8,
+    AddA,
     AddB,
+    AddC,
+    AddD,
+    AddE,
+    AddH,
+    AddL,
     AddAIndHL,
     AddD8,
     AddHLBC,
@@ -1859,10 +2228,30 @@ pub enum Opcode {
     AddHLHL,
     AddHLSP,
     AddSPE8,
+    AndA,
+    AndB,
+    AndC,
+    AndD,
+    AndE,
+    AndH,
+    AndL,
     AndD8,
+    SbcA,
+    SbcB,
+    SbcC,
+    SbcD,
+    SbcE,
+    SbcH,
+    SbcL,
     SbcD8,
     SubD8,
+    SubA,
     SubB,
+    SubC,
+    SubD,
+    SubE,
+    SubH,
+    SubL,
     IncA,
     IncB,
     IncC,
@@ -1891,19 +2280,36 @@ pub enum Opcode {
     OrAIndHL,
     OrB,
     OrC,
+    OrD,
+    OrE,
+    OrH,
+    OrL,
     OrD8,
     XorA,
+    XorB,
     XorC,
+    XorD,
+    XorE,
+    XorH,
     XorL,
     XorD8,
     XorAIndHL,
+    CpA,
+    CpB,
+    CpC,
+    CpD,
     CpE,
+    CpH,
+    CpL,
     CpD8,
     CpAIndHL,
     Cpl,
+    Ccf,
     Scf,
     RlA,
+    RlcA,
     RrA,
+    RrcA,
 }
 
 impl Opcode {
@@ -2047,15 +2453,36 @@ impl Opcode {
             Opcode::OrAIndHL => 0,
             Opcode::OrB => 0,
             Opcode::OrC => 0,
+            Opcode::OrD => 0,
+            Opcode::OrE => 0,
+            Opcode::OrH => 0,
+            Opcode::OrL => 0,
             Opcode::OrD8 => 1,
             Opcode::XorA => 0,
+            Opcode::XorB => 0,
             Opcode::XorC => 0,
+            Opcode::XorD => 0,
+            Opcode::XorE => 0,
+            Opcode::XorH => 0,
             Opcode::XorL => 0,
             Opcode::XorD8 => 1,
             Opcode::XorAIndHL => 0,
             Opcode::LdIndCA => 0,
+            Opcode::AdcA => 0,
+            Opcode::AdcB => 0,
+            Opcode::AdcC => 0,
+            Opcode::AdcD => 0,
+            Opcode::AdcE => 0,
+            Opcode::AdcH => 0,
+            Opcode::AdcL => 0,
             Opcode::AdcD8 => 1,
+            Opcode::AddA => 0,
             Opcode::AddB => 0,
+            Opcode::AddC => 0,
+            Opcode::AddD => 0,
+            Opcode::AddE => 0,
+            Opcode::AddH => 0,
+            Opcode::AddL => 0,
             Opcode::AddD8 => 1,
             Opcode::AddHLBC => 0,
             Opcode::AddHLDE => 0,
@@ -2063,14 +2490,41 @@ impl Opcode {
             Opcode::AddHLSP => 0,
             Opcode::AddSPE8 => 1,
             Opcode::AddAIndHL => 0,
+            Opcode::AndA => 0,
+            Opcode::AndB => 0,
+            Opcode::AndC => 0,
+            Opcode::AndD => 0,
+            Opcode::AndE => 0,
+            Opcode::AndH => 0,
+            Opcode::AndL => 0,
             Opcode::AndD8 => 1,
+            Opcode::SbcA => 0,
+            Opcode::SbcB => 0,
+            Opcode::SbcC => 0,
+            Opcode::SbcD => 0,
+            Opcode::SbcE => 0,
+            Opcode::SbcH => 0,
+            Opcode::SbcL => 0,
             Opcode::SbcD8 => 1,
             Opcode::SubD8 => 1,
+            Opcode::SubA => 0,
             Opcode::SubB => 0,
+            Opcode::SubC => 0,
+            Opcode::SubD => 0,
+            Opcode::SubE => 0,
+            Opcode::SubH => 0,
+            Opcode::SubL => 0,
+            Opcode::CpA => 0,
+            Opcode::CpB => 0,
+            Opcode::CpC => 0,
+            Opcode::CpD => 0,
             Opcode::CpE => 0,
+            Opcode::CpH => 0,
+            Opcode::CpL => 0,
             Opcode::CpD8 => 1,
             Opcode::CpAIndHL => 0,
             Opcode::Cpl => 0,
+            Opcode::Ccf => 0,
             Opcode::Scf => 0,
             Opcode::CallA16 => 2,
             Opcode::CallCA16 => 2,
@@ -2078,7 +2532,9 @@ impl Opcode {
             Opcode::CallNcA16 => 2,
             Opcode::CallNzA16 => 2,
             Opcode::RlA => 0,
+            Opcode::RlcA => 0,
             Opcode::RrA => 0,
+            Opcode::RrcA => 0,
             Opcode::Ret => 0,
             Opcode::Reti => 0,
             Opcode::RetC => 0,
@@ -2224,9 +2680,17 @@ impl Opcode {
             Opcode::OrAIndHL => 8,
             Opcode::OrB => 4,
             Opcode::OrC => 4,
+            Opcode::OrD => 4,
+            Opcode::OrE => 4,
+            Opcode::OrH => 4,
+            Opcode::OrL => 4,
             Opcode::OrD8 => 8,
             Opcode::XorA => 4,
+            Opcode::XorB => 4,
             Opcode::XorC => 4,
+            Opcode::XorD => 4,
+            Opcode::XorE => 4,
+            Opcode::XorH => 4,
             Opcode::XorL => 4,
             Opcode::XorD8 => 8,
             Opcode::XorAIndHL => 8,
@@ -2240,8 +2704,21 @@ impl Opcode {
             Opcode::LdEIndHL => 8,
             Opcode::LdHIndHL => 8,
             Opcode::LdLIndHL => 8,
+            Opcode::AdcA => 4,
+            Opcode::AdcB => 4,
+            Opcode::AdcC => 4,
+            Opcode::AdcD => 4,
+            Opcode::AdcE => 4,
+            Opcode::AdcH => 4,
+            Opcode::AdcL => 4,
             Opcode::AdcD8 => 8,
+            Opcode::AddA => 4,
             Opcode::AddB => 4,
+            Opcode::AddC => 4,
+            Opcode::AddD => 4,
+            Opcode::AddE => 4,
+            Opcode::AddH => 4,
+            Opcode::AddL => 4,
             Opcode::AddD8 => 8,
             Opcode::AddHLBC => 8,
             Opcode::AddHLDE => 8,
@@ -2249,13 +2726,40 @@ impl Opcode {
             Opcode::AddSPE8 => 16,
             Opcode::AddHLSP => 8,
             Opcode::AddAIndHL => 8,
+            Opcode::AndA => 4,
+            Opcode::AndB => 4,
+            Opcode::AndC => 4,
+            Opcode::AndD => 4,
+            Opcode::AndE => 4,
+            Opcode::AndH => 4,
+            Opcode::AndL => 4,
             Opcode::AndD8 => 8,
+            Opcode::SbcA => 4,
+            Opcode::SbcB => 4,
+            Opcode::SbcC => 4,
+            Opcode::SbcD => 4,
+            Opcode::SbcE => 4,
+            Opcode::SbcH => 4,
+            Opcode::SbcL => 4,
             Opcode::SbcD8 => 8,
             Opcode::SubD8 => 8,
+            Opcode::SubA => 4,
             Opcode::SubB => 4,
+            Opcode::SubC => 4,
+            Opcode::SubD => 4,
+            Opcode::SubE => 4,
+            Opcode::SubH => 4,
+            Opcode::SubL => 4,
+            Opcode::CpA => 4,
+            Opcode::CpB => 4,
+            Opcode::CpC => 4,
+            Opcode::CpD => 4,
             Opcode::CpE => 4,
+            Opcode::CpH => 4,
+            Opcode::CpL => 4,
             Opcode::CpD8 => 8,
             Opcode::Cpl => 4,
+            Opcode::Ccf => 4,
             Opcode::Scf => 4,
             Opcode::CpAIndHL => 8,
             Opcode::CallA16 => 24,
@@ -2264,7 +2768,9 @@ impl Opcode {
             Opcode::CallNcA16 => 24,
             Opcode::CallNzA16 => 24,
             Opcode::RlA => 4,
+            Opcode::RlcA => 4,
             Opcode::RrA => 4,
+            Opcode::RrcA => 4,
             Opcode::Ret => 16,
             Opcode::Reti => 16,
             Opcode::RetC => 20,
@@ -2289,12 +2795,14 @@ impl TryFrom<&u8> for Opcode {
             0x04 => Ok(Opcode::IncB),
             0x05 => Ok(Opcode::DecB),
             0x06 => Ok(Opcode::LdBD8),
+            0x07 => Ok(Opcode::RlcA),
             0x08 => Ok(Opcode::LdA16SP),
             0x09 => Ok(Opcode::AddHLBC),
             0x0b => Ok(Opcode::DecBC),
             0x0c => Ok(Opcode::IncC),
             0x0d => Ok(Opcode::DecC),
             0x0e => Ok(Opcode::LdCD8),
+            0x0f => Ok(Opcode::RrcA),
 
             0x11 => Ok(Opcode::LdDED16),
             0x12 => Ok(Opcode::LdIndDEA),
@@ -2342,6 +2850,7 @@ impl TryFrom<&u8> for Opcode {
             0x3c => Ok(Opcode::IncA),
             0x3d => Ok(Opcode::DecA),
             0x3e => Ok(Opcode::LdAD8),
+            0x3f => Ok(Opcode::Ccf),
 
             0x40 => Ok(Opcode::LdBB),
             0x41 => Ok(Opcode::LdBC),
@@ -2411,21 +2920,68 @@ impl TryFrom<&u8> for Opcode {
             0x7f => Ok(Opcode::LdAA),
 
             0x80 => Ok(Opcode::AddB),
+            0x81 => Ok(Opcode::AddC),
+            0x82 => Ok(Opcode::AddD),
+            0x83 => Ok(Opcode::AddE),
+            0x84 => Ok(Opcode::AddH),
+            0x85 => Ok(Opcode::AddL),
             0x86 => Ok(Opcode::AddAIndHL),
+            0x87 => Ok(Opcode::AddA),
+            0x88 => Ok(Opcode::AdcB),
+            0x89 => Ok(Opcode::AdcC),
+            0x8a => Ok(Opcode::AdcD),
+            0x8b => Ok(Opcode::AdcE),
+            0x8c => Ok(Opcode::AdcH),
+            0x8d => Ok(Opcode::AdcL),
+            0x8f => Ok(Opcode::AdcA),
 
             0x90 => Ok(Opcode::SubB),
+            0x91 => Ok(Opcode::SubC),
+            0x92 => Ok(Opcode::SubD),
+            0x93 => Ok(Opcode::SubE),
+            0x94 => Ok(Opcode::SubH),
+            0x95 => Ok(Opcode::SubL),
+            0x97 => Ok(Opcode::SubA),
+            0x98 => Ok(Opcode::SbcB),
+            0x99 => Ok(Opcode::SbcC),
+            0x9a => Ok(Opcode::SbcD),
+            0x9b => Ok(Opcode::SbcE),
+            0x9c => Ok(Opcode::SbcH),
+            0x9d => Ok(Opcode::SbcL),
+            0x9f => Ok(Opcode::SbcA),
 
-            0xad => Ok(Opcode::XorL),
+            0xa0 => Ok(Opcode::AndB),
+            0xa1 => Ok(Opcode::AndC),
+            0xa2 => Ok(Opcode::AndD),
+            0xa3 => Ok(Opcode::AndE),
+            0xa4 => Ok(Opcode::AndH),
+            0xa5 => Ok(Opcode::AndL),
+            0xa7 => Ok(Opcode::AndA),
+            0xa8 => Ok(Opcode::XorB),
             0xa9 => Ok(Opcode::XorC),
+            0xaa => Ok(Opcode::XorD),
+            0xab => Ok(Opcode::XorE),
+            0xac => Ok(Opcode::XorH),
+            0xad => Ok(Opcode::XorL),
             0xae => Ok(Opcode::XorAIndHL),
             0xaf => Ok(Opcode::XorA),
 
             0xb0 => Ok(Opcode::OrB),
             0xb1 => Ok(Opcode::OrC),
+            0xb2 => Ok(Opcode::OrD),
+            0xb3 => Ok(Opcode::OrE),
+            0xb4 => Ok(Opcode::OrH),
+            0xb5 => Ok(Opcode::OrL),
             0xb6 => Ok(Opcode::OrAIndHL),
             0xb7 => Ok(Opcode::OrA),
+            0xb8 => Ok(Opcode::CpB),
+            0xb9 => Ok(Opcode::CpC),
+            0xba => Ok(Opcode::CpD),
             0xbb => Ok(Opcode::CpE),
+            0xbc => Ok(Opcode::CpH),
+            0xbd => Ok(Opcode::CpL),
             0xbe => Ok(Opcode::CpAIndHL),
+            0xbf => Ok(Opcode::CpA),
 
             0xc0 => Ok(Opcode::RetNz),
             0xc1 => Ok(Opcode::PopBC),
