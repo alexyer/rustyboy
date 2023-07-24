@@ -110,8 +110,10 @@ pub enum InstructionType {
     Bit0R,
     Bit7R,
     RlR,
+    Rlca,
     RlcR,
     RrR,
+    Rrca,
     RrcR,
     Rst,
     SrlR,
@@ -1950,11 +1952,60 @@ impl Instruction {
         Some(vec![InstructionReg::Reg(Reg::C)])
     );
     impl_instruction_constructor!(
-        rlc_a,
-        InstructionType::RlcR,
-        Opcode::RlcA,
+        rlca,
+        InstructionType::Rlca,
+        Opcode::Rlca,
         None::<PrefixedOpcode>,
         Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        rlc_a,
+        InstructionType::RlcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RlcA),
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        rlc_b,
+        InstructionType::RlcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RlcB),
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        rlc_c,
+        InstructionType::RlcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RlcC),
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        rlc_d,
+        InstructionType::RlcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RlcD),
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        rlc_e,
+        InstructionType::RlcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RlcE),
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        rlc_h,
+        InstructionType::RlcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RlcH),
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        rlc_l,
+        InstructionType::RlcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RlcL),
+        Some(vec![InstructionReg::Reg(Reg::L)])
     );
     impl_instruction_constructor!(
         rr_a,
@@ -1985,11 +2036,60 @@ impl Instruction {
         Some(vec![InstructionReg::Reg(Reg::E)])
     );
     impl_instruction_constructor!(
-        rrc_a,
-        InstructionType::RrcR,
-        Opcode::RrcA,
+        rrca,
+        InstructionType::Rrca,
+        Opcode::Rrca,
         None::<PrefixedOpcode>,
         Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        rrc_a,
+        InstructionType::RrcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrcA),
+        Some(vec![InstructionReg::Reg(Reg::A)])
+    );
+    impl_instruction_constructor!(
+        rrc_b,
+        InstructionType::RrcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrcB),
+        Some(vec![InstructionReg::Reg(Reg::B)])
+    );
+    impl_instruction_constructor!(
+        rrc_c,
+        InstructionType::RrcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrcC),
+        Some(vec![InstructionReg::Reg(Reg::C)])
+    );
+    impl_instruction_constructor!(
+        rrc_d,
+        InstructionType::RrcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrcD),
+        Some(vec![InstructionReg::Reg(Reg::D)])
+    );
+    impl_instruction_constructor!(
+        rrc_e,
+        InstructionType::RrcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrcE),
+        Some(vec![InstructionReg::Reg(Reg::E)])
+    );
+    impl_instruction_constructor!(
+        rrc_h,
+        InstructionType::RrcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrcH),
+        Some(vec![InstructionReg::Reg(Reg::H)])
+    );
+    impl_instruction_constructor!(
+        rrc_l,
+        InstructionType::RrcR,
+        Opcode::Prefix,
+        Some(PrefixedOpcode::RrcL),
+        Some(vec![InstructionReg::Reg(Reg::L)])
     );
     impl_instruction_constructor!(
         srl_b,
@@ -2307,9 +2407,9 @@ pub enum Opcode {
     Ccf,
     Scf,
     RlA,
-    RlcA,
+    Rlca,
     RrA,
-    RrcA,
+    Rrca,
 }
 
 impl Opcode {
@@ -2532,9 +2632,9 @@ impl Opcode {
             Opcode::CallNcA16 => 2,
             Opcode::CallNzA16 => 2,
             Opcode::RlA => 0,
-            Opcode::RlcA => 0,
+            Opcode::Rlca => 0,
             Opcode::RrA => 0,
-            Opcode::RrcA => 0,
+            Opcode::Rrca => 0,
             Opcode::Ret => 0,
             Opcode::Reti => 0,
             Opcode::RetC => 0,
@@ -2768,9 +2868,9 @@ impl Opcode {
             Opcode::CallNcA16 => 24,
             Opcode::CallNzA16 => 24,
             Opcode::RlA => 4,
-            Opcode::RlcA => 4,
+            Opcode::Rlca => 4,
             Opcode::RrA => 4,
-            Opcode::RrcA => 4,
+            Opcode::Rrca => 4,
             Opcode::Ret => 16,
             Opcode::Reti => 16,
             Opcode::RetC => 20,
@@ -2795,14 +2895,14 @@ impl TryFrom<&u8> for Opcode {
             0x04 => Ok(Opcode::IncB),
             0x05 => Ok(Opcode::DecB),
             0x06 => Ok(Opcode::LdBD8),
-            0x07 => Ok(Opcode::RlcA),
+            0x07 => Ok(Opcode::Rlca),
             0x08 => Ok(Opcode::LdA16SP),
             0x09 => Ok(Opcode::AddHLBC),
             0x0b => Ok(Opcode::DecBC),
             0x0c => Ok(Opcode::IncC),
             0x0d => Ok(Opcode::DecC),
             0x0e => Ok(Opcode::LdCD8),
-            0x0f => Ok(Opcode::RrcA),
+            0x0f => Ok(Opcode::Rrca),
 
             0x11 => Ok(Opcode::LdDED16),
             0x12 => Ok(Opcode::LdIndDEA),
@@ -3043,9 +3143,23 @@ pub enum PrefixedOpcode {
     Bit0D,
     Bit7H,
     RlC,
+    RlcA,
+    RlcB,
+    RlcC,
+    RlcD,
+    RlcE,
+    RlcH,
+    RlcL,
     RrC,
     RrD,
     RrE,
+    RrcA,
+    RrcB,
+    RrcC,
+    RrcD,
+    RrcE,
+    RrcH,
+    RrcL,
     SrlB,
     SwapA,
 }
@@ -3056,9 +3170,23 @@ impl PrefixedOpcode {
             PrefixedOpcode::Bit0D => 0,
             PrefixedOpcode::Bit7H => 0,
             PrefixedOpcode::RlC => 0,
+            PrefixedOpcode::RlcA => 0,
+            PrefixedOpcode::RlcB => 0,
+            PrefixedOpcode::RlcC => 0,
+            PrefixedOpcode::RlcD => 0,
+            PrefixedOpcode::RlcE => 0,
+            PrefixedOpcode::RlcH => 0,
+            PrefixedOpcode::RlcL => 0,
             PrefixedOpcode::RrC => 0,
             PrefixedOpcode::RrD => 0,
             PrefixedOpcode::RrE => 0,
+            PrefixedOpcode::RrcA => 0,
+            PrefixedOpcode::RrcB => 0,
+            PrefixedOpcode::RrcC => 0,
+            PrefixedOpcode::RrcD => 0,
+            PrefixedOpcode::RrcE => 0,
+            PrefixedOpcode::RrcH => 0,
+            PrefixedOpcode::RrcL => 0,
             PrefixedOpcode::SrlB => 0,
             PrefixedOpcode::SwapA => 0,
         }
@@ -3069,9 +3197,23 @@ impl PrefixedOpcode {
             PrefixedOpcode::Bit0D => 8,
             PrefixedOpcode::Bit7H => 8,
             PrefixedOpcode::RlC => 8,
+            PrefixedOpcode::RlcA => 8,
+            PrefixedOpcode::RlcB => 8,
+            PrefixedOpcode::RlcC => 8,
+            PrefixedOpcode::RlcD => 8,
+            PrefixedOpcode::RlcE => 8,
+            PrefixedOpcode::RlcH => 8,
+            PrefixedOpcode::RlcL => 8,
             PrefixedOpcode::RrC => 8,
             PrefixedOpcode::RrD => 8,
             PrefixedOpcode::RrE => 8,
+            PrefixedOpcode::RrcA => 8,
+            PrefixedOpcode::RrcB => 8,
+            PrefixedOpcode::RrcC => 8,
+            PrefixedOpcode::RrcD => 8,
+            PrefixedOpcode::RrcE => 8,
+            PrefixedOpcode::RrcH => 8,
+            PrefixedOpcode::RrcL => 8,
             PrefixedOpcode::SrlB => 8,
             PrefixedOpcode::SwapA => 8,
         }
@@ -3082,6 +3224,20 @@ impl TryFrom<&u8> for PrefixedOpcode {
     type Error = InstructionError;
     fn try_from(value: &u8) -> Result<Self, Self::Error> {
         match value {
+            0x00 => Ok(PrefixedOpcode::RlcB),
+            0x01 => Ok(PrefixedOpcode::RlcC),
+            0x02 => Ok(PrefixedOpcode::RlcD),
+            0x03 => Ok(PrefixedOpcode::RlcE),
+            0x04 => Ok(PrefixedOpcode::RlcH),
+            0x05 => Ok(PrefixedOpcode::RlcL),
+            0x07 => Ok(PrefixedOpcode::RlcA),
+            0x08 => Ok(PrefixedOpcode::RrcB),
+            0x09 => Ok(PrefixedOpcode::RrcC),
+            0x0a => Ok(PrefixedOpcode::RrcD),
+            0x0b => Ok(PrefixedOpcode::RrcE),
+            0x0c => Ok(PrefixedOpcode::RrcH),
+            0x0d => Ok(PrefixedOpcode::RrcL),
+            0x0f => Ok(PrefixedOpcode::RrcA),
             0x11 => Ok(PrefixedOpcode::RlC),
             0x19 => Ok(PrefixedOpcode::RrC),
             0x1a => Ok(PrefixedOpcode::RrD),

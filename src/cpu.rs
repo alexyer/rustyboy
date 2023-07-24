@@ -394,8 +394,10 @@ impl Cpu {
                     InstructionType::Bit0R => self.bit_r(regs[0].into(), 0),
                     InstructionType::Bit7R => self.bit_r(regs[0].into(), 7),
                     InstructionType::RlR => self.rl_r(regs[0].into()),
+                    InstructionType::Rlca => self.rlca(),
                     InstructionType::RlcR => self.rlc_r(regs[0].into()),
                     InstructionType::RrR => self.rr_r(regs[0].into()),
+                    InstructionType::Rrca => self.rrca(),
                     InstructionType::RrcR => self.rrc_r(regs[0].into()),
                     InstructionType::SrlR => self.srl_r(regs[0].into()),
                     InstructionType::SwapR => self.swap_r(regs[0].into()),
@@ -856,8 +858,8 @@ impl Cpu {
 
                 Some(Instruction::ld_a16_sp(&data))
             }
-            Opcode::RlcA => Some(Instruction::rlc_a(&[])),
-            Opcode::RrcA => Some(Instruction::rrc_a(&[])),
+            Opcode::Rlca => Some(Instruction::rlca(&[])),
+            Opcode::Rrca => Some(Instruction::rrca(&[])),
             Opcode::Prefix => {
                 let prefixed_opcode = match PrefixedOpcode::try_from(&mmu.read_byte(pc as usize)) {
                     Ok(prefixed_opcode) => prefixed_opcode,
@@ -872,10 +874,24 @@ impl Cpu {
                 match prefixed_opcode {
                     PrefixedOpcode::Bit7H => Some(Instruction::bit7h(&[])),
                     PrefixedOpcode::RlC => Some(Instruction::rl_c(&[])),
+                    PrefixedOpcode::RlcA => Some(Instruction::rlc_a(&[])),
+                    PrefixedOpcode::RlcB => Some(Instruction::rlc_b(&[])),
+                    PrefixedOpcode::RlcC => Some(Instruction::rlc_c(&[])),
+                    PrefixedOpcode::RlcD => Some(Instruction::rlc_d(&[])),
+                    PrefixedOpcode::RlcE => Some(Instruction::rlc_e(&[])),
+                    PrefixedOpcode::RlcH => Some(Instruction::rlc_h(&[])),
+                    PrefixedOpcode::RlcL => Some(Instruction::rlc_l(&[])),
                     PrefixedOpcode::Bit0D => Some(Instruction::bit0d(&[])),
                     PrefixedOpcode::RrC => Some(Instruction::rr_c(&[])),
                     PrefixedOpcode::RrD => Some(Instruction::rr_d(&[])),
                     PrefixedOpcode::RrE => Some(Instruction::rr_e(&[])),
+                    PrefixedOpcode::RrcA => Some(Instruction::rrc_a(&[])),
+                    PrefixedOpcode::RrcB => Some(Instruction::rrc_b(&[])),
+                    PrefixedOpcode::RrcC => Some(Instruction::rrc_c(&[])),
+                    PrefixedOpcode::RrcD => Some(Instruction::rrc_d(&[])),
+                    PrefixedOpcode::RrcE => Some(Instruction::rrc_e(&[])),
+                    PrefixedOpcode::RrcH => Some(Instruction::rrc_h(&[])),
+                    PrefixedOpcode::RrcL => Some(Instruction::rrc_l(&[])),
                     PrefixedOpcode::SrlB => Some(Instruction::srl_b(&[])),
                     PrefixedOpcode::SwapA => Some(Instruction::swap_a(&[])),
                 }
@@ -1472,14 +1488,15 @@ impl Cpu {
         self.set_c_to(will_carry);
     }
 
+    fn rlca(&mut self) {
+        let val = self.rlc8(self.regs.read_reg(Reg::A));
+        self.regs.write_reg(Reg::A, val);
+        self.clear_z()
+    }
+
     fn rlc_r(&mut self, reg: Reg) {
         let val = self.rlc8(self.regs.read_reg(reg));
         self.regs.write_reg(reg, val);
-
-        match reg {
-            Reg::A => self.clear_z(),
-            _ => (),
-        }
     }
 
     fn rlc8(&mut self, x: u8) -> u8 {
@@ -1515,14 +1532,15 @@ impl Cpu {
         self.regs.write_reg(reg, val);
     }
 
+    fn rrca(&mut self) {
+        let val = self.rrc8(self.regs.read_reg(Reg::A));
+        self.regs.write_reg(Reg::A, val);
+        self.clear_z();
+    }
+
     fn rrc_r(&mut self, reg: Reg) {
         let val = self.rrc8(self.regs.read_reg(reg));
         self.regs.write_reg(reg, val);
-
-        match reg {
-            Reg::A => self.clear_z(),
-            _ => (),
-        }
     }
 
     fn rrc8(&mut self, x: u8) -> u8 {
@@ -1945,7 +1963,7 @@ mod tests {
     }
 
     macro_rules! test_rrc_r {
-        ($r:expr, $mnemonic:expr, $cycles:expr, $pc:expr, $name:ident) => {
+        ($r:expr, $mnemonic:expr, $name:ident) => {
             #[test]
             fn $name() {
                 let mut cpu = Cpu::default();
@@ -1955,8 +1973,8 @@ mod tests {
 
                 let cycles = cpu.exec_instruction(&mut mmu);
 
-                assert_eq!(cycles, $cycles);
-                assert_eq!(cpu.regs.read_reg16(Reg16::PC), $pc);
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
                 assert!(!cpu.z());
                 assert!(!cpu.n());
                 assert!(!cpu.h());
@@ -2070,8 +2088,8 @@ mod tests {
 
                 let cycles = cpu.exec_instruction(&mut mmu);
 
-                assert_eq!(cycles, 4);
-                assert_eq!(cpu.regs.read_reg16(Reg16::PC), 1);
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
                 assert!(!cpu.z());
                 assert!(!cpu.n());
                 assert!(!cpu.h());
@@ -3186,7 +3204,13 @@ mod tests {
         assert!(cpu.h());
     }
 
-    test_rlc_r!(Reg::A, &[0x07], test_rlc_a);
+    test_rlc_r!(Reg::A, &[0xcb, 0x07], test_rlc_a);
+    test_rlc_r!(Reg::B, &[0xcb, 0x00], test_rlc_b);
+    test_rlc_r!(Reg::C, &[0xcb, 0x01], test_rlc_c);
+    test_rlc_r!(Reg::D, &[0xcb, 0x02], test_rlc_d);
+    test_rlc_r!(Reg::E, &[0xcb, 0x03], test_rlc_e);
+    test_rlc_r!(Reg::H, &[0xcb, 0x04], test_rlc_h);
+    test_rlc_r!(Reg::L, &[0xcb, 0x05], test_rlc_hl);
 
     #[test]
     fn test_rl_c() {
@@ -3211,7 +3235,13 @@ mod tests {
     test_rr_r!(Reg::D, &[0xcb, 0x1a], 12, 2, test_rr_d);
     test_rr_r!(Reg::E, &[0xcb, 0x1b], 12, 2, test_rr_e);
 
-    test_rrc_r!(Reg::A, &[0x0f], 4, 1, test_rrc_a);
+    test_rrc_r!(Reg::A, &[0xcb, 0x0f], test_rrc_a);
+    test_rrc_r!(Reg::B, &[0xcb, 0x08], test_rrc_b);
+    test_rrc_r!(Reg::C, &[0xcb, 0x09], test_rrc_c);
+    test_rrc_r!(Reg::D, &[0xcb, 0x0a], test_rrc_d);
+    test_rrc_r!(Reg::E, &[0xcb, 0x0b], test_rrc_e);
+    test_rrc_r!(Reg::H, &[0xcb, 0x0c], test_rrc_h);
+    test_rrc_r!(Reg::L, &[0xcb, 0x0d], test_rrc_l);
 
     #[test]
     fn test_srl_b() {
