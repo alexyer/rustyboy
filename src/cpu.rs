@@ -165,6 +165,10 @@ impl Regs {
 pub struct Cpu {
     regs: Regs,
     interrupts_enabled: bool,
+
+    /// Set if instruction branched during exectuion.
+    /// Reset every cycle.
+    branched: bool,
 }
 
 impl Display for Cpu {
@@ -403,7 +407,10 @@ impl Cpu {
                     InstructionType::SwapR => self.swap_r(regs[0].into()),
                 }
 
-                instruction.cycles()
+                let cycles = instruction.cycles(self.branched);
+                self.branched = false;
+
+                cycles
             }
             None => 0,
         }
@@ -915,6 +922,8 @@ impl Cpu {
     }
 
     fn call_a16(&mut self, data: &[u8; 2], mmu: &mut Mmu) {
+        self.branched = true;
+
         let pc = self.regs.read_reg16(Reg16::PC).to_le_bytes();
 
         let sp = self.regs.dec_reg16(Reg16::SP);
@@ -951,6 +960,8 @@ impl Cpu {
     }
 
     fn ret(&mut self, mmu: &mut Mmu) {
+        self.branched = true;
+
         let sp = self.regs.read_reg16(Reg16::SP);
 
         let ll = mmu.read_byte(sp as usize);
@@ -1603,6 +1614,8 @@ impl Cpu {
     }
 
     fn jr_r8(&mut self, data: &[u8; 1]) {
+        self.branched = true;
+
         let offset = data[0] as i8;
         self.regs.write_reg16(
             Reg16::PC,
@@ -1613,6 +1626,8 @@ impl Cpu {
     }
 
     fn jp_a16(&mut self, data: &[u8; 2]) {
+        self.branched = true;
+
         self.regs.write_reg16(Reg16::PC, u16::from_le_bytes(*data));
     }
 
@@ -3313,7 +3328,7 @@ mod tests {
 
         let cycles = cpu.exec_instruction(&mut mmu);
 
-        assert_eq!(cycles, 12);
+        assert_eq!(cycles, 8);
         assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
     }
 
@@ -3333,7 +3348,7 @@ mod tests {
 
         let cycles = cpu.exec_instruction(&mut mmu);
 
-        assert_eq!(cycles, 12);
+        assert_eq!(cycles, 8);
         assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
     }
 
@@ -3345,7 +3360,7 @@ mod tests {
 
         let cycles = cpu.exec_instruction(&mut mmu);
 
-        assert_eq!(cycles, 12);
+        assert_eq!(cycles, 8);
         assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
 
         cpu.regs.write_reg16(Reg16::PC, 0);
@@ -3365,7 +3380,7 @@ mod tests {
 
         let cycles = cpu.exec_instruction(&mut mmu);
 
-        assert_eq!(cycles, 12);
+        assert_eq!(cycles, 8);
         assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
 
         cpu.regs.write_reg16(Reg16::PC, 0);
