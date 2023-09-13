@@ -7,3 +7,4 @@ authors = ["Oleksandr Yermakov <olexander.yermakov@gmail.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+num_enum = "0.7.0"

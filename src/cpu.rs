@@ -417,16 +417,16 @@ impl Cpu {
     }
 
     fn read_instruction<'a>(&mut self, mmu: &'a mut Mmu) -> Option<Instruction> {
-        let opcode =
-            match Opcode::try_from(&mmu.read_byte(self.regs.read_reg16(Reg16::PC) as usize)) {
-                Ok(opcode) => opcode,
-                Err(InstructionError::UnrecognizedOpcode(opcode)) => {
-                    println!("{}", self);
-                    println!("IE: 0b{:b}", mmu.read_byte(INT_ENABLE_ADDRESS));
-                    panic!("unrecognized opcode: 0x{:x}", opcode);
-                }
-                _ => unreachable!(),
-            };
+        let opcode = match Opcode::try_from(mmu.read_byte(self.regs.read_reg16(Reg16::PC) as usize))
+        {
+            Ok(opcode) => opcode,
+            Err(InstructionError::UnrecognizedOpcode(opcode)) => {
+                println!("{}", self);
+                println!("IE: 0b{:b}", mmu.read_byte(INT_ENABLE_ADDRESS));
+                panic!("unrecognized opcode: 0x{:x}", opcode);
+            }
+            _ => unreachable!(),
+        };
 
         self.regs.inc_reg16(Reg16::PC);
         let pc = self.regs.read_reg16(Reg16::PC);
@@ -868,7 +868,7 @@ impl Cpu {
             Opcode::Rlca => Some(Instruction::rlca(&[])),
             Opcode::Rrca => Some(Instruction::rrca(&[])),
             Opcode::Prefix => {
-                let prefixed_opcode = match PrefixedOpcode::try_from(&mmu.read_byte(pc as usize)) {
+                let prefixed_opcode = match PrefixedOpcode::try_from(mmu.read_byte(pc as usize)) {
                     Ok(prefixed_opcode) => prefixed_opcode,
                     Err(InstructionError::UnrecognizedPrefixedOpcode(prefixed_opcode)) => {
                         println!("{}", self);
