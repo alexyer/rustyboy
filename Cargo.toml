@@ -7,4 +7,5 @@ authors = ["Oleksandr Yermakov <olexander.yermakov@gmail.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rustyboy_instruction_derive = { version = "*", path = "./instruction_derive" }
 num_enum = "0.7.0"

@@ -1,3 +1,5 @@
+extern crate rustyboy_instruction_derive;
+
 mod cartridge;
 mod cpu;
 mod errors;

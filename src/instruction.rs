@@ -1,53 +1,7 @@
 use num_enum::TryFromPrimitive;
+use rustyboy_instruction_derive::InstructionImpl;
 
-use crate::{
-    cpu::{Reg, Reg16},
-    errors::InstructionError,
-};
-
-macro_rules! check_data {
-    ($data:ident, $opcode:expr, $prefixed_opcode:expr) => {
-        if let Some(_) = $prefixed_opcode {
-            if $data.len() != 0 {
-                panic!(
-                    "invalid data provided for {:?}. expected: {}, got: {}",
-                    $prefixed_opcode,
-                    0,
-                    $data.len()
-                );
-            }
-        } else {
-            if $data.len() != INSTRUCTION_DATA_LEN[$opcode as usize] {
-                panic!(
-                    "invalid data provided for {:?}. expected: {}, got: {}",
-                    $opcode,
-                    INSTRUCTION_DATA_LEN[$opcode as usize],
-                    $data.len()
-                );
-            }
-        }
-    };
-}
-
-macro_rules! impl_instruction_constructor {
-    ($fun:ident, $type:expr, $opcode:expr, $prefixed_opcode:expr, $regs:expr) => {
-        pub fn $fun(data: &[u8]) -> Self {
-            let opcode = $opcode;
-            let prefixed_opcode = $prefixed_opcode;
-            let instruction_type = $type;
-            let regs = $regs;
-
-            check_data!(data, opcode, prefixed_opcode);
-            Self {
-                opcode,
-                prefixed_opcode,
-                instruction_type,
-                regs,
-                data: data.into(),
-            }
-        }
-    };
-}
+use crate::errors::InstructionError;
 
 #[derive(Debug)]
 pub enum InstructionType {
@@ -60,7 +14,7 @@ pub enum InstructionType {
     LdAA8,
     LdA8A,
     LdAIndC,
-    LdRIndRR,
+    LdRIndRr,
     LdIndRrR,
     PushRr,
     PopRr,
@@ -122,2378 +76,782 @@ pub enum InstructionType {
     SwapR,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum InstructionReg {
-    Reg(Reg),
-    Reg16(Reg16),
+pub enum Instruction {
+    Normal(NormalInstruction),
+    Prefixed(PrefixedInstruction),
 }
 
-impl Into<Reg> for InstructionReg {
-    fn into(self) -> Reg {
-        match self {
-            InstructionReg::Reg(reg) => reg,
-            InstructionReg::Reg16(_) => unreachable!(),
-        }
+impl From<NormalInstruction> for Instruction {
+    fn from(value: NormalInstruction) -> Self {
+        Instruction::Normal(value)
     }
 }
 
-impl Into<Reg16> for InstructionReg {
-    fn into(self) -> Reg16 {
-        match self {
-            InstructionReg::Reg(_) => unreachable!(),
-            InstructionReg::Reg16(reg) => reg,
-        }
+impl From<PrefixedInstruction> for Instruction {
+    fn from(value: PrefixedInstruction) -> Self {
+        Instruction::Prefixed(value)
     }
 }
 
-const INSTRUCTION_CYCLES: [usize; 256] = [
-    1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, 1, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1,
-    2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1, 2, 3, 2, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 1, 2, 1,
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1,
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
-    2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 0, 3, 6, 2, 4, 2, 3, 3, 0, 3, 4, 2, 4, 2, 4, 3, 0, 3, 0, 2, 4,
-    3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4, 3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4,
-];
-
-const INSTRUCTION_CYCLES_BRANCHED: [usize; 256] = [
-    1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, 1, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1,
-    3, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1, 3, 3, 2, 2, 3, 3, 3, 1, 3, 2, 2, 2, 1, 1, 2, 1,
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1,
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
-    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
-    5, 3, 4, 4, 6, 4, 2, 4, 5, 4, 4, 0, 6, 6, 2, 4, 5, 3, 4, 0, 6, 4, 2, 4, 5, 4, 4, 0, 6, 0, 2, 4,
-    3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4, 3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4,
-];
-
-const INSTRUCTION_CYCLES_CB: [usize; 256] = [
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
-    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
-    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
-    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
-];
-
-const INSTRUCTION_DATA_LEN: [usize; 256] = [
-    0, 2, 0, 0, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 1, 0, 1, 2, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0,
-    1, 2, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 2, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 2, 2, 2, 0, 1, 0, 0, 0, 2, 0, 2, 2, 1, 0, 0, 0, 2, 0, 2, 0, 1, 0, 0, 0, 2, 0, 2, 0, 1, 0,
-    1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 2, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 2, 0, 0, 0, 1, 0,
-];
-
-#[derive(Debug)]
-pub struct Instruction {
-    opcode: Opcode,
-    prefixed_opcode: Option<PrefixedOpcode>,
-    instruction_type: InstructionType,
-    regs: Option<Vec<InstructionReg>>,
-    data: Vec<u8>,
-}
-
-impl Instruction {
-    pub fn opcode(&self) -> &Opcode {
-        &self.opcode
-    }
-
-    pub fn instruction_type(&self) -> &InstructionType {
-        &self.instruction_type
-    }
-
-    pub fn cycles(&self, branched: bool) -> usize {
-        if let Some(prefixed_opcode) = self.prefixed_opcode {
-            INSTRUCTION_CYCLES_CB[prefixed_opcode as usize] * 4 + 4
-        } else {
-            if branched {
-                INSTRUCTION_CYCLES_BRANCHED[self.opcode as usize] * 4
-            } else {
-                INSTRUCTION_CYCLES[self.opcode as usize] * 4
-            }
-        }
-    }
-
-    pub fn data(&self) -> &[u8] {
-        &self.data
-    }
-
-    pub fn regs(&self) -> &Option<Vec<InstructionReg>> {
-        &self.regs
-    }
-
-    pub fn nop() -> Self {
-        Self {
-            opcode: Opcode::Nop,
-            prefixed_opcode: None,
-            instruction_type: InstructionType::Nop,
-            data: vec![],
-            regs: None,
-        }
-    }
-
-    impl_instruction_constructor!(
-        ld_bc_d16,
-        InstructionType::LdRrD16,
-        Opcode::LdBCD16,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::BC)])
-    );
-    impl_instruction_constructor!(
-        ld_de_d16,
-        InstructionType::LdRrD16,
-        Opcode::LdDED16,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::DE)])
-    );
-    impl_instruction_constructor!(
-        ld_sp_d16,
-        InstructionType::LdRrD16,
-        Opcode::LdSPD16,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::SP)])
-    );
-    impl_instruction_constructor!(
-        ld_hl_d16,
-        InstructionType::LdRrD16,
-        Opcode::LdHLD16,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::HL)])
-    );
-    impl_instruction_constructor!(
-        ld_a_d8,
-        InstructionType::LdRD8,
-        Opcode::LdAD8,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        ld_b_d8,
-        InstructionType::LdRD8,
-        Opcode::LdBD8,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        ld_c_d8,
-        InstructionType::LdRD8,
-        Opcode::LdCD8,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        ld_d_d8,
-        InstructionType::LdRD8,
-        Opcode::LdDD8,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        ld_e_d8,
-        InstructionType::LdRD8,
-        Opcode::LdED8,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        ld_h_d8,
-        InstructionType::LdRD8,
-        Opcode::LdHD8,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        ld_l_d8,
-        InstructionType::LdRD8,
-        Opcode::LdLD8,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        ld_a_a16,
-        InstructionType::LdAA16,
-        Opcode::LdAA16,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        ld_a_a,
-        InstructionType::LdRR,
-        Opcode::LdAA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_a_b,
-        InstructionType::LdRR,
-        Opcode::LdAB,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg(Reg::B)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_a_c,
-        InstructionType::LdRR,
-        Opcode::LdAC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_a_d,
-        InstructionType::LdRR,
-        Opcode::LdAD,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg(Reg::D)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_a_e,
-        InstructionType::LdRR,
-        Opcode::LdAE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg(Reg::E)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_a_h,
-        InstructionType::LdRR,
-        Opcode::LdAH,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg(Reg::H)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_a_l,
-        InstructionType::LdRR,
-        Opcode::LdAL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg(Reg::L)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_b_a,
-        InstructionType::LdRR,
-        Opcode::LdBA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::B),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_b_b,
-        InstructionType::LdRR,
-        Opcode::LdBB,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::B),
-            InstructionReg::Reg(Reg::B)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_b_c,
-        InstructionType::LdRR,
-        Opcode::LdBC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::B),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_b_d,
-        InstructionType::LdRR,
-        Opcode::LdBD,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::B),
-            InstructionReg::Reg(Reg::D)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_b_e,
-        InstructionType::LdRR,
-        Opcode::LdBE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::B),
-            InstructionReg::Reg(Reg::E)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_b_h,
-        InstructionType::LdRR,
-        Opcode::LdBH,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::B),
-            InstructionReg::Reg(Reg::H)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_b_l,
-        InstructionType::LdRR,
-        Opcode::LdBL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::B),
-            InstructionReg::Reg(Reg::L)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_c_a,
-        InstructionType::LdRR,
-        Opcode::LdCA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::C),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_c_b,
-        InstructionType::LdRR,
-        Opcode::LdCB,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::C),
-            InstructionReg::Reg(Reg::B)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_c_c,
-        InstructionType::LdRR,
-        Opcode::LdCC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::C),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_c_d,
-        InstructionType::LdRR,
-        Opcode::LdCD,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::C),
-            InstructionReg::Reg(Reg::D)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_c_e,
-        InstructionType::LdRR,
-        Opcode::LdCE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::C),
-            InstructionReg::Reg(Reg::E)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_c_h,
-        InstructionType::LdRR,
-        Opcode::LdCH,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::C),
-            InstructionReg::Reg(Reg::H)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_c_l,
-        InstructionType::LdRR,
-        Opcode::LdCL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::C),
-            InstructionReg::Reg(Reg::L)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_d_a,
-        InstructionType::LdRR,
-        Opcode::LdDA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::D),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_d_b,
-        InstructionType::LdRR,
-        Opcode::LdDB,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::D),
-            InstructionReg::Reg(Reg::B)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_d_c,
-        InstructionType::LdRR,
-        Opcode::LdDC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::D),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_d_d,
-        InstructionType::LdRR,
-        Opcode::LdDD,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::D),
-            InstructionReg::Reg(Reg::D)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_d_e,
-        InstructionType::LdRR,
-        Opcode::LdDE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::D),
-            InstructionReg::Reg(Reg::E)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_d_h,
-        InstructionType::LdRR,
-        Opcode::LdDH,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::D),
-            InstructionReg::Reg(Reg::H)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_d_l,
-        InstructionType::LdRR,
-        Opcode::LdDL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::D),
-            InstructionReg::Reg(Reg::L)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_e_a,
-        InstructionType::LdRR,
-        Opcode::LdEA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::E),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_e_b,
-        InstructionType::LdRR,
-        Opcode::LdDB,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::E),
-            InstructionReg::Reg(Reg::B)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_e_c,
-        InstructionType::LdRR,
-        Opcode::LdDC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::E),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_e_d,
-        InstructionType::LdRR,
-        Opcode::LdDD,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::E),
-            InstructionReg::Reg(Reg::D)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_e_e,
-        InstructionType::LdRR,
-        Opcode::LdDE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::E),
-            InstructionReg::Reg(Reg::E)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_e_h,
-        InstructionType::LdRR,
-        Opcode::LdDH,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::E),
-            InstructionReg::Reg(Reg::H)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_e_l,
-        InstructionType::LdRR,
-        Opcode::LdEL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::E),
-            InstructionReg::Reg(Reg::L)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_h_a,
-        InstructionType::LdRR,
-        Opcode::LdHA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::H),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_h_b,
-        InstructionType::LdRR,
-        Opcode::LdHB,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::H),
-            InstructionReg::Reg(Reg::B)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_h_c,
-        InstructionType::LdRR,
-        Opcode::LdHC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::H),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_h_d,
-        InstructionType::LdRR,
-        Opcode::LdHD,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::H),
-            InstructionReg::Reg(Reg::D)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_h_e,
-        InstructionType::LdRR,
-        Opcode::LdHE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::H),
-            InstructionReg::Reg(Reg::E)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_h_h,
-        InstructionType::LdRR,
-        Opcode::LdHH,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::H),
-            InstructionReg::Reg(Reg::H)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_h_l,
-        InstructionType::LdRR,
-        Opcode::LdHA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::H),
-            InstructionReg::Reg(Reg::L)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_l_a,
-        InstructionType::LdRR,
-        Opcode::LdLA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::L),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_l_b,
-        InstructionType::LdRR,
-        Opcode::LdLB,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::L),
-            InstructionReg::Reg(Reg::B)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_l_c,
-        InstructionType::LdRR,
-        Opcode::LdLC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::L),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_l_d,
-        InstructionType::LdRR,
-        Opcode::LdLD,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::L),
-            InstructionReg::Reg(Reg::D)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_l_e,
-        InstructionType::LdRR,
-        Opcode::LdLE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::L),
-            InstructionReg::Reg(Reg::E)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_l_h,
-        InstructionType::LdRR,
-        Opcode::LdLH,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::L),
-            InstructionReg::Reg(Reg::H)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_l_l,
-        InstructionType::LdRR,
-        Opcode::LdLL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::L),
-            InstructionReg::Reg(Reg::L)
-        ])
-    );
-    impl_instruction_constructor!(
-        ldh_a_a8,
-        InstructionType::LdAA8,
-        Opcode::LdhAA8,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        ldh_a8_a,
-        InstructionType::LdA8A,
-        Opcode::LdhA8A,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        ld_a_ind_c,
-        InstructionType::LdAIndC,
-        Opcode::LdAIndC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ldh_a_ind_de,
-        InstructionType::LdRIndRR,
-        Opcode::LdAIndDE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg16(Reg16::DE)
-        ])
-    );
-    impl_instruction_constructor!(
-        ldh_a_ind_hl,
-        InstructionType::LdRIndRR,
-        Opcode::LdAIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        ldh_b_ind_hl,
-        InstructionType::LdRIndRR,
-        Opcode::LdBIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::B),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        ldh_c_ind_hl,
-        InstructionType::LdRIndRR,
-        Opcode::LdCIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::C),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        ldh_d_ind_hl,
-        InstructionType::LdRIndRR,
-        Opcode::LdDIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::D),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        ldh_e_ind_hl,
-        InstructionType::LdRIndRR,
-        Opcode::LdEIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::E),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        ldh_h_ind_hl,
-        InstructionType::LdRIndRR,
-        Opcode::LdHIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::H),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        ldh_l_ind_hl,
-        InstructionType::LdRIndRR,
-        Opcode::LdLIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::L),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        push_af,
-        InstructionType::PushRr,
-        Opcode::PushAF,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::AF)])
-    );
-    impl_instruction_constructor!(
-        push_bc,
-        InstructionType::PushRr,
-        Opcode::PushBC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::BC)])
-    );
-    impl_instruction_constructor!(
-        push_de,
-        InstructionType::PushRr,
-        Opcode::PushDE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::DE)])
-    );
-    impl_instruction_constructor!(
-        push_hl,
-        InstructionType::PushRr,
-        Opcode::PushHL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::HL)])
-    );
-    impl_instruction_constructor!(
-        pop_af,
-        InstructionType::PopRr,
-        Opcode::PopAF,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::AF)])
-    );
-    impl_instruction_constructor!(
-        pop_bc,
-        InstructionType::PopRr,
-        Opcode::PopBC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::BC)])
-    );
-    impl_instruction_constructor!(
-        pop_de,
-        InstructionType::PopRr,
-        Opcode::PopDE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::DE)])
-    );
-    impl_instruction_constructor!(
-        pop_hl,
-        InstructionType::PopRr,
-        Opcode::PopHL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::HL)])
-    );
-    impl_instruction_constructor!(
-        ld_ind_de_a,
-        InstructionType::LdIndRrR,
-        Opcode::LdIndDEA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::DE),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_a,
-        InstructionType::LdIndRrR,
-        Opcode::LdIndHLA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_b,
-        InstructionType::LdIndRrR,
-        Opcode::LdIndHLB,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg(Reg::B)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_c,
-        InstructionType::LdIndRrR,
-        Opcode::LdIndHLC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_d,
-        InstructionType::LdIndRrR,
-        Opcode::LdIndHLD,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg(Reg::D)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_e,
-        InstructionType::LdIndRrR,
-        Opcode::LdIndHLE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg(Reg::E)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_h,
-        InstructionType::LdIndRrR,
-        Opcode::LdIndHLH,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg(Reg::H)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_l,
-        InstructionType::LdIndRrR,
-        Opcode::LdIndHLL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg(Reg::L)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_d8,
-        InstructionType::LdIndHlD8,
-        Opcode::LdIndHLD8,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::HL)])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_dec_a,
-        InstructionType::LdIndHlDecA,
-        Opcode::LdIndHLDecA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_hl_inc_a,
-        InstructionType::LdIndHLIncA,
-        Opcode::LdIndHLIncA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg(Reg::A)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_a_ind_hl_inc,
-        InstructionType::LdAIndHLInc,
-        Opcode::LdAIndHLInc,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_ind_c_a,
-        InstructionType::LdIndCA,
-        Opcode::LdIndCA,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg(Reg::C)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_hl_sp_e8,
-        InstructionType::LdHLSPE8,
-        Opcode::LdHLSPE8,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg16(Reg16::SP)
-        ])
-    );
-    impl_instruction_constructor!(
-        ld_sp_hl,
-        InstructionType::LdRrRr,
-        Opcode::LdSPHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::SP),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        inc_a,
-        InstructionType::IncR,
-        Opcode::IncA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        inc_b,
-        InstructionType::IncR,
-        Opcode::IncB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        inc_c,
-        InstructionType::IncR,
-        Opcode::IncC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        inc_d,
-        InstructionType::IncR,
-        Opcode::IncD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        inc_e,
-        InstructionType::IncR,
-        Opcode::IncE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        inc_h,
-        InstructionType::IncR,
-        Opcode::IncH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        inc_l,
-        InstructionType::IncR,
-        Opcode::IncL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        inc_bc,
-        InstructionType::IncRr,
-        Opcode::IncBC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::BC)])
-    );
-    impl_instruction_constructor!(
-        inc_de,
-        InstructionType::IncRr,
-        Opcode::IncDE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::DE)])
-    );
-    impl_instruction_constructor!(
-        inc_hl,
-        InstructionType::IncRr,
-        Opcode::IncHL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::HL)])
-    );
-    impl_instruction_constructor!(
-        inc_sp,
-        InstructionType::IncRr,
-        Opcode::IncSP,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::SP)])
-    );
-    impl_instruction_constructor!(
-        daa,
-        InstructionType::Daa,
-        Opcode::Daa,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        dec_a,
-        InstructionType::DecR,
-        Opcode::DecA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        dec_b,
-        InstructionType::DecR,
-        Opcode::DecB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        dec_c,
-        InstructionType::DecR,
-        Opcode::DecC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        dec_d,
-        InstructionType::DecR,
-        Opcode::DecD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        dec_e,
-        InstructionType::DecR,
-        Opcode::DecE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        dec_h,
-        InstructionType::DecR,
-        Opcode::DecH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        dec_l,
-        InstructionType::DecR,
-        Opcode::DecL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        dec_bc,
-        InstructionType::DecRr,
-        Opcode::DecBC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::BC)])
-    );
-    impl_instruction_constructor!(
-        dec_de,
-        InstructionType::DecRr,
-        Opcode::DecDE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::DE)])
-    );
-    impl_instruction_constructor!(
-        dec_hl,
-        InstructionType::DecRr,
-        Opcode::DecHL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::HL)])
-    );
-    impl_instruction_constructor!(
-        dec_sp,
-        InstructionType::DecRr,
-        Opcode::DecSP,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::SP)])
-    );
-    impl_instruction_constructor!(
-        dec_ind_hl,
-        InstructionType::DecIndHl,
-        Opcode::DecIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::HL)])
-    );
-    impl_instruction_constructor!(
-        adc_a,
-        InstructionType::AdcR,
-        Opcode::AdcA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        adc_b,
-        InstructionType::AdcR,
-        Opcode::AdcB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        adc_c,
-        InstructionType::AdcR,
-        Opcode::AdcC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        adc_d,
-        InstructionType::AdcR,
-        Opcode::AdcD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        adc_e,
-        InstructionType::AdcR,
-        Opcode::AdcE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        adc_h,
-        InstructionType::AdcR,
-        Opcode::AdcH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        adc_l,
-        InstructionType::AdcR,
-        Opcode::AdcL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        adc_d8,
-        InstructionType::AdcD8,
-        Opcode::AdcD8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        add_a,
-        InstructionType::AddR,
-        Opcode::AddA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        add_b,
-        InstructionType::AddR,
-        Opcode::AddB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        add_c,
-        InstructionType::AddR,
-        Opcode::AddC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        add_d,
-        InstructionType::AddR,
-        Opcode::AddD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        add_e,
-        InstructionType::AddR,
-        Opcode::AddE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        add_h,
-        InstructionType::AddR,
-        Opcode::AddH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        add_l,
-        InstructionType::AddR,
-        Opcode::AddL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        add_d8,
-        InstructionType::AddD8,
-        Opcode::AddD8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        add_hl_bc,
-        InstructionType::AddRrRr,
-        Opcode::AddHLBC,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg16(Reg16::BC)
-        ])
-    );
-    impl_instruction_constructor!(
-        add_hl_de,
-        InstructionType::AddRrRr,
-        Opcode::AddHLDE,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg16(Reg16::DE)
-        ])
-    );
-    impl_instruction_constructor!(
-        add_hl_hl,
-        InstructionType::AddRrRr,
-        Opcode::AddHLHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        add_hl_sp,
-        InstructionType::AddRrRr,
-        Opcode::AddHLSP,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg16(Reg16::HL),
-            InstructionReg::Reg16(Reg16::SP)
-        ])
-    );
-    impl_instruction_constructor!(
-        add_sp_e8,
-        InstructionType::AddSpE8,
-        Opcode::AddSPE8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        add_a_ind_hl,
-        InstructionType::AddAIndHl,
-        Opcode::AddAIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        and_a,
-        InstructionType::AndR,
-        Opcode::AndA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        and_b,
-        InstructionType::AndR,
-        Opcode::AndB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        and_c,
-        InstructionType::AndR,
-        Opcode::AndC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        and_d,
-        InstructionType::AndR,
-        Opcode::AndD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        and_e,
-        InstructionType::AndR,
-        Opcode::AndE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        and_h,
-        InstructionType::AndR,
-        Opcode::AndH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        and_l,
-        InstructionType::AndR,
-        Opcode::AndL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        and_d8,
-        InstructionType::AndD8,
-        Opcode::AndD8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        sbc_a,
-        InstructionType::SbcR,
-        Opcode::SbcA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        sbc_b,
-        InstructionType::SbcR,
-        Opcode::SbcB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        sbc_c,
-        InstructionType::SbcR,
-        Opcode::SbcC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        sbc_d,
-        InstructionType::SbcR,
-        Opcode::SbcD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        sbc_e,
-        InstructionType::SbcR,
-        Opcode::SbcE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        sbc_h,
-        InstructionType::SbcR,
-        Opcode::SbcH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        sbc_l,
-        InstructionType::SbcR,
-        Opcode::SbcL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        sbc_d8,
-        InstructionType::SbcD8,
-        Opcode::SbcD8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        sub_d8,
-        InstructionType::SubD8,
-        Opcode::SubD8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        sub_a,
-        InstructionType::SubR,
-        Opcode::SubA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        sub_b,
-        InstructionType::SubR,
-        Opcode::SubB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        sub_c,
-        InstructionType::SubR,
-        Opcode::SubC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        sub_d,
-        InstructionType::SubR,
-        Opcode::SubD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        sub_e,
-        InstructionType::SubR,
-        Opcode::SubE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        sub_h,
-        InstructionType::SubR,
-        Opcode::SubH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        sub_l,
-        InstructionType::SubR,
-        Opcode::SubL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        or_a,
-        InstructionType::OrR,
-        Opcode::OrA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        or_b,
-        InstructionType::OrR,
-        Opcode::OrB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        or_c,
-        InstructionType::OrR,
-        Opcode::OrC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        or_d,
-        InstructionType::OrR,
-        Opcode::OrD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        or_e,
-        InstructionType::OrR,
-        Opcode::OrE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        or_h,
-        InstructionType::OrR,
-        Opcode::OrH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        or_l,
-        InstructionType::OrR,
-        Opcode::OrL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        or_a_ind_hl,
-        InstructionType::OrAIndHl,
-        Opcode::OrAIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        or_d8,
-        InstructionType::OrD8,
-        Opcode::OrD8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        xor_a,
-        InstructionType::XorR,
-        Opcode::XorA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        xor_b,
-        InstructionType::XorR,
-        Opcode::XorB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        xor_c,
-        InstructionType::XorR,
-        Opcode::XorC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        xor_d,
-        InstructionType::XorR,
-        Opcode::XorD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        xor_e,
-        InstructionType::XorR,
-        Opcode::XorE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        xor_h,
-        InstructionType::XorR,
-        Opcode::XorH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        xor_l,
-        InstructionType::XorR,
-        Opcode::XorL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        xor_d8,
-        InstructionType::XorD8,
-        Opcode::XorD8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        xor_a_ind_hl,
-        InstructionType::XorAIndHl,
-        Opcode::XorAIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        cp_a,
-        InstructionType::CpR,
-        Opcode::CpA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        cp_b,
-        InstructionType::CpR,
-        Opcode::CpB,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        cp_c,
-        InstructionType::CpR,
-        Opcode::CpC,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        cp_d,
-        InstructionType::CpR,
-        Opcode::CpD,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        cp_e,
-        InstructionType::CpR,
-        Opcode::CpE,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        cp_h,
-        InstructionType::CpR,
-        Opcode::CpH,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        cp_l,
-        InstructionType::CpR,
-        Opcode::CpL,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        cp_d8,
-        InstructionType::CpD8,
-        Opcode::CpD8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        cp_a_ind_hl,
-        InstructionType::CpAIndHl,
-        Opcode::CpAIndHL,
-        None::<PrefixedOpcode>,
-        Some(vec![
-            InstructionReg::Reg(Reg::A),
-            InstructionReg::Reg16(Reg16::HL)
-        ])
-    );
-    impl_instruction_constructor!(
-        cpl,
-        InstructionType::Cpl,
-        Opcode::Cpl,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        ccf,
-        InstructionType::Ccf,
-        Opcode::Ccf,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        scf,
-        InstructionType::Scf,
-        Opcode::Scf,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jr_r8,
-        InstructionType::Jr,
-        Opcode::JrR8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jr_c_r8,
-        InstructionType::Jr,
-        Opcode::JrCR8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jr_nc_r8,
-        InstructionType::Jr,
-        Opcode::JrNcR8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jr_nz_r8,
-        InstructionType::Jr,
-        Opcode::JrNzR8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jr_z_r8,
-        InstructionType::Jr,
-        Opcode::JrZR8,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jp_a16,
-        InstructionType::Jp,
-        Opcode::JpA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jp_nc_a16,
-        InstructionType::Jp,
-        Opcode::JpNcA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jp_nz_a16,
-        InstructionType::Jp,
-        Opcode::JpNzA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jp_c_a16,
-        InstructionType::Jp,
-        Opcode::JpCA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jp_z_a16,
-        InstructionType::Jp,
-        Opcode::JpZA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        jp_hl,
-        InstructionType::Jp,
-        Opcode::JpHL,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        call_a16,
-        InstructionType::Call,
-        Opcode::CallA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        call_c_a16,
-        InstructionType::Call,
-        Opcode::CallCA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        call_z_a16,
-        InstructionType::Call,
-        Opcode::CallZA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        call_nc_a16,
-        InstructionType::Call,
-        Opcode::CallNcA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        call_nz_a16,
-        InstructionType::Call,
-        Opcode::CallNzA16,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        di,
-        InstructionType::Di,
-        Opcode::Di,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        ei,
-        InstructionType::Ei,
-        Opcode::Ei,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        bit0d,
-        InstructionType::Bit0R,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::Bit0D),
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        bit7h,
-        InstructionType::Bit7R,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::Bit7H),
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        rl_a,
-        InstructionType::RlR,
-        Opcode::RlA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        rl_c,
-        InstructionType::RlR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RlC),
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        rlca,
-        InstructionType::Rlca,
-        Opcode::Rlca,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        rlc_a,
-        InstructionType::RlcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RlcA),
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        rlc_b,
-        InstructionType::RlcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RlcB),
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        rlc_c,
-        InstructionType::RlcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RlcC),
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        rlc_d,
-        InstructionType::RlcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RlcD),
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        rlc_e,
-        InstructionType::RlcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RlcE),
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        rlc_h,
-        InstructionType::RlcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RlcH),
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        rlc_l,
-        InstructionType::RlcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RlcL),
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        rr_a,
-        InstructionType::RrR,
-        Opcode::RrA,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        rr_c,
-        InstructionType::RrR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrC),
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        rr_d,
-        InstructionType::RrR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrD),
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        rr_e,
-        InstructionType::RrR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrE),
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        rrca,
-        InstructionType::Rrca,
-        Opcode::Rrca,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        rrc_a,
-        InstructionType::RrcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrcA),
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        rrc_b,
-        InstructionType::RrcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrcB),
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        rrc_c,
-        InstructionType::RrcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrcC),
-        Some(vec![InstructionReg::Reg(Reg::C)])
-    );
-    impl_instruction_constructor!(
-        rrc_d,
-        InstructionType::RrcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrcD),
-        Some(vec![InstructionReg::Reg(Reg::D)])
-    );
-    impl_instruction_constructor!(
-        rrc_e,
-        InstructionType::RrcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrcE),
-        Some(vec![InstructionReg::Reg(Reg::E)])
-    );
-    impl_instruction_constructor!(
-        rrc_h,
-        InstructionType::RrcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrcH),
-        Some(vec![InstructionReg::Reg(Reg::H)])
-    );
-    impl_instruction_constructor!(
-        rrc_l,
-        InstructionType::RrcR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::RrcL),
-        Some(vec![InstructionReg::Reg(Reg::L)])
-    );
-    impl_instruction_constructor!(
-        srl_b,
-        InstructionType::SrlR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::SrlB),
-        Some(vec![InstructionReg::Reg(Reg::B)])
-    );
-    impl_instruction_constructor!(
-        swap_a,
-        InstructionType::SwapR,
-        Opcode::Prefix,
-        Some(PrefixedOpcode::SwapA),
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        ret,
-        InstructionType::Ret,
-        Opcode::Ret,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        reti,
-        InstructionType::Ret,
-        Opcode::Reti,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        ret_c,
-        InstructionType::Ret,
-        Opcode::RetC,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        ret_nc,
-        InstructionType::Ret,
-        Opcode::RetNc,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        ret_nz,
-        InstructionType::Ret,
-        Opcode::RetNz,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        ret_z,
-        InstructionType::Ret,
-        Opcode::RetZ,
-        None::<PrefixedOpcode>,
-        None
-    );
-
-    impl_instruction_constructor!(
-        rst00,
-        InstructionType::Rst,
-        Opcode::Rst00,
-        None::<PrefixedOpcode>,
-        None
-    );
-    impl_instruction_constructor!(
-        ld_a16_a,
-        InstructionType::LdA16A,
-        Opcode::LdA16A,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg(Reg::A)])
-    );
-    impl_instruction_constructor!(
-        ld_a16_sp,
-        InstructionType::LdA16Sp,
-        Opcode::LdA16SP,
-        None::<PrefixedOpcode>,
-        Some(vec![InstructionReg::Reg16(Reg16::SP)])
-    );
-}
-
-#[derive(Debug, Clone, Copy, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, InstructionImpl, TryFromPrimitive)]
 #[num_enum(error_type(name = InstructionError, constructor = InstructionError::UnrecognizedOpcode))]
+#[instruction_struct_name(NormalInstruction)]
 #[repr(u8)]
+#[allow(non_camel_case_types)]
 pub enum Opcode {
-    Nop = 0x00,
-    LdBCD16 = 0x01,
-    IncBC = 0x03,
-    IncB = 0x04,
-    DecB = 0x05,
-    LdBD8 = 0x06,
-    Rlca = 0x07,
-    LdA16SP = 0x08,
-    AddHLBC = 0x09,
-    DecBC = 0x0b,
-    IncC = 0x0c,
-    DecC = 0x0d,
-    LdCD8 = 0x0e,
-    Rrca = 0x0f,
+    #[instruction(instruction_type = "Nop", len = 0, cycles = [4])]
+    NOP = 0x00,
 
-    LdDED16 = 0x11,
-    LdIndDEA = 0x12,
-    IncDE = 0x13,
-    IncD = 0x14,
-    DecD = 0x15,
-    LdDD8 = 0x16,
-    RlA = 0x17,
-    JrR8 = 0x18,
-    AddHLDE = 0x19,
-    LdAIndDE = 0x1a,
-    DecDE = 0x1b,
-    IncE = 0x1c,
-    DecE = 0x1d,
-    LdED8 = 0x1e,
-    RrA = 0x1f,
+    #[instruction(regs = ["BC"], instruction_type = "LdRrD16", len = 2, cycles = [12])]
+    LD_BC_D16 = 0x01,
 
-    JrNzR8 = 0x20,
-    LdHLD16 = 0x21,
-    LdIndHLIncA = 0x22,
-    IncHL = 0x23,
-    IncH = 0x24,
-    DecH = 0x25,
-    LdHD8 = 0x26,
-    Daa = 0x27,
-    JrZR8 = 0x28,
-    AddHLHL = 0x29,
-    LdAIndHLInc = 0x2a,
-    DecHL = 0x2b,
-    IncL = 0x2c,
-    DecL = 0x2d,
-    LdLD8 = 0x2e,
-    Cpl = 0x2f,
+    #[instruction(regs = ["BC"], instruction_type = "IncRr", len = 0, cycles = [8])]
+    INC_BC = 0x03,
 
-    JrNcR8 = 0x30,
-    LdSPD16 = 0x31,
-    LdIndHLDecA = 0x32,
-    IncSP = 0x33,
-    DecIndHL = 0x35,
-    LdIndHLD8 = 0x36,
-    Scf = 0x37,
-    JrCR8 = 0x38,
-    AddHLSP = 0x39,
-    DecSP = 0x3b,
-    IncA = 0x3c,
-    DecA = 0x3d,
-    LdAD8 = 0x3e,
-    Ccf = 0x3f,
+    #[instruction(regs = ["B"], instruction_type = "IncR", len = 0, cycles = [4])]
+    INC_B = 0x04,
 
-    LdBB = 0x40,
-    LdBC = 0x41,
-    LdBD = 0x42,
-    LdBE = 0x43,
-    LdBH = 0x44,
-    LdBL = 0x45,
-    LdBIndHL = 0x46,
-    LdBA = 0x47,
-    LdCB = 0x48,
-    LdCC = 0x49,
-    LdCD = 0x4a,
-    LdCE = 0x4b,
-    LdCH = 0x4c,
-    LdCL = 0x4d,
-    LdCIndHL = 0x4e,
-    LdCA = 0x4f,
+    #[instruction(regs = ["B"], instruction_type = "DecR", len = 0, cycles = [4])]
+    DEC_B = 0x05,
 
-    LdDB = 0x50,
-    LdDC = 0x51,
-    LdDD = 0x52,
-    LdDE = 0x53,
-    LdDH = 0x54,
-    LdDL = 0x55,
-    LdDIndHL = 0x56,
-    LdDA = 0x57,
-    LdEB = 0x58,
-    LdEC = 0x59,
-    LdED = 0x5a,
-    LdEE = 0x5b,
-    LdEH = 0x5c,
-    LdEL = 0x5d,
-    LdEIndHL = 0x5e,
-    LdEA = 0x5f,
+    #[instruction(regs = ["B"], instruction_type = "LdRD8", len = 1, cycles = [8])]
+    LD_B_D8 = 0x06,
 
-    LdHB = 0x60,
-    LdHC = 0x61,
-    LdHD = 0x62,
-    LdHE = 0x63,
-    LdHH = 0x64,
-    LdHL = 0x65,
-    LdHIndHL = 0x66,
-    LdHA = 0x67,
-    LdLB = 0x68,
-    LdLC = 0x69,
-    LdLD = 0x6a,
-    LdLE = 0x6b,
-    LdLH = 0x6c,
-    LdLL = 0x6d,
-    LdLIndHL = 0x6e,
-    LdLA = 0x6f,
+    #[instruction(regs = ["A"], instruction_type = "Rlca", len = 0, cycles = [4])]
+    RLCA = 0x07,
 
-    LdIndHLB = 0x70,
-    LdIndHLC = 0x71,
-    LdIndHLD = 0x72,
-    LdIndHLE = 0x73,
-    LdIndHLH = 0x74,
-    LdIndHLL = 0x75,
-    LdIndHLA = 0x77,
-    LdAB = 0x78,
-    LdAC = 0x79,
-    LdAD = 0x7a,
-    LdAE = 0x7b,
-    LdAH = 0x7c,
-    LdAL = 0x7d,
-    LdAIndHL = 0x7e,
-    LdAA = 0x7f,
+    #[instruction(instruction_type = "LdA16Sp", len = 2, cycles = [20])]
+    LD_A16_SP = 0x08,
 
-    AddB = 0x80,
-    AddC = 0x81,
-    AddD = 0x82,
-    AddE = 0x83,
-    AddH = 0x84,
-    AddL = 0x85,
-    AddAIndHL = 0x86,
-    AddA = 0x87,
-    AdcB = 0x88,
-    AdcC = 0x89,
-    AdcD = 0x8a,
-    AdcE = 0x8b,
-    AdcH = 0x8c,
-    AdcL = 0x8d,
-    AdcA = 0x8f,
+    #[instruction(regs = ["HL", "BC"], instruction_type = "AddRrRr", len = 0, cycles = [8])]
+    ADD_HL_BC = 0x09,
 
-    SubB = 0x90,
-    SubC = 0x91,
-    SubD = 0x92,
-    SubE = 0x93,
-    SubH = 0x94,
-    SubL = 0x95,
-    SubA = 0x97,
-    SbcB = 0x98,
-    SbcC = 0x99,
-    SbcD = 0x9a,
-    SbcE = 0x9b,
-    SbcH = 0x9c,
-    SbcL = 0x9d,
-    SbcA = 0x9f,
+    #[instruction(regs = ["BC"], instruction_type = "DecRr", len = 0, cycles = [8])]
+    DEC_BC = 0x0b,
 
-    AndB = 0xa0,
-    AndC = 0xa1,
-    AndD = 0xa2,
-    AndE = 0xa3,
-    AndH = 0xa4,
-    AndL = 0xa5,
-    AndA = 0xa7,
-    XorB = 0xa8,
-    XorC = 0xa9,
-    XorD = 0xaa,
-    XorE = 0xab,
-    XorH = 0xac,
-    XorL = 0xad,
-    XorAIndHL = 0xae,
-    XorA = 0xaf,
+    #[instruction(regs = ["C"], instruction_type = "IncR", len = 0, cycles = [4])]
+    INC_C = 0x0c,
 
-    OrB = 0xb0,
-    OrC = 0xb1,
-    OrD = 0xb2,
-    OrE = 0xb3,
-    OrH = 0xb4,
-    OrL = 0xb5,
-    OrAIndHL = 0xb6,
-    OrA = 0xb7,
-    CpB = 0xb8,
-    CpC = 0xb9,
-    CpD = 0xba,
-    CpE = 0xbb,
-    CpH = 0xbc,
-    CpL = 0xbd,
-    CpAIndHL = 0xbe,
-    CpA = 0xbf,
+    #[instruction(regs = ["C"], instruction_type = "DecR", len = 0, cycles = [4])]
+    DEC_C = 0x0d,
 
-    RetNz = 0xc0,
-    PopBC = 0xc1,
-    JpNzA16 = 0xc2,
-    JpA16 = 0xc3,
-    CallNzA16 = 0xc4,
-    PushBC = 0xc5,
-    AddD8 = 0xc6,
-    Rst00 = 0xc7,
-    RetZ = 0xc8,
-    Ret = 0xc9,
-    JpZA16 = 0xca,
-    Prefix = 0xcb,
-    CallZA16 = 0xcc,
-    AdcD8 = 0xce,
-    CallA16 = 0xcd,
+    #[instruction(regs = ["C"], instruction_type = "LdRD8", len = 1, cycles = [8])]
+    LD_C_D8 = 0x0e,
 
-    RetNc = 0xd0,
-    PopDE = 0xd1,
-    JpNcA16 = 0xd2,
-    CallNcA16 = 0xd4,
-    PushDE = 0xd5,
-    SubD8 = 0xd6,
-    RetC = 0xd8,
-    Reti = 0xd9,
-    JpCA16 = 0xda,
-    CallCA16 = 0xdc,
-    SbcD8 = 0xde,
+    #[instruction(regs = ["A"], instruction_type = "Rrca", len = 0, cycles = [4])]
+    RRCA = 0x0f,
 
-    LdhA8A = 0xe0,
-    PopHL = 0xe1,
-    LdIndCA = 0xe2,
-    PushHL = 0xe5,
-    JpHL = 0xe9,
-    AndD8 = 0xe6,
-    AddSPE8 = 0xe8,
-    LdA16A = 0xea,
+    #[instruction(regs = ["DE"], instruction_type = "LdRrD16", len = 2, cycles = [12])]
+    LD_DE_D16 = 0x11,
 
-    LdhAA8 = 0xf0,
-    PopAF = 0xf1,
-    LdAIndC = 0xf2,
-    Di = 0xf3,
-    PushAF = 0xf5,
-    OrD8 = 0xf6,
-    LdHLSPE8 = 0xf8,
-    LdSPHL = 0xf9,
-    LdAA16 = 0xfa,
-    Ei = 0xfb,
-    CpD8 = 0xfe,
+    #[instruction(regs = ["DE", "A"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
+    LD_IND_DE_A = 0x12,
 
-    XorD8 = 0xee,
+    #[instruction(regs = ["DE"], instruction_type = "IncRr", len = 0, cycles = [8])]
+    INC_DE = 0x13,
+
+    #[instruction(regs = ["D"], instruction_type = "IncR", len = 0, cycles = [4])]
+    INC_D = 0x14,
+
+    #[instruction(regs = ["D"], instruction_type = "DecR", len = 0, cycles = [4])]
+    DEC_D = 0x15,
+
+    #[instruction(regs = ["D"], instruction_type = "LdRD8", len = 1, cycles = [8])]
+    LD_D_D8 = 0x16,
+
+    #[instruction(regs = ["A"], instruction_type = "RlR", len = 0, cycles = [4])]
+    RL_A = 0x17,
+
+    #[instruction(regs = [], instruction_type = "Jr", len = 1, cycles = [12])]
+    JR_R8 = 0x18,
+
+    #[instruction(regs = ["HL", "DE"], instruction_type = "AddRrRr", len = 0, cycles = [8])]
+    ADD_HL_DE = 0x19,
+
+    #[instruction(regs = ["A", "DE"], instruction_type = "LdRIndRr", len = 0, cycles = [8])]
+    LD_A_IND_DE = 0x1a,
+
+    #[instruction(regs = ["DE"], instruction_type = "DecRr", len = 0, cycles = [8])]
+    DEC_DE = 0x1b,
+
+    #[instruction(regs = ["E"], instruction_type = "IncR", len = 0, cycles = [4])]
+    INC_E = 0x1c,
+
+    #[instruction(regs = ["E"], instruction_type = "DecR", len = 0, cycles = [4])]
+    DEC_E = 0x1d,
+
+    #[instruction(regs = ["E"], instruction_type = "LdRD8", len = 1, cycles = [8])]
+    LD_E_D8 = 0x1e,
+
+    #[instruction(regs = ["A"], instruction_type = "RrR", len = 0, cycles = [4])]
+    RR_A = 0x1f,
+
+    #[instruction(instruction_type = "Jr", len = 1, cycles = [12, 8])]
+    JR_NZ_R8 = 0x20,
+
+    #[instruction(regs = ["HL"], instruction_type = "LdRrD16", len = 2, cycles = [12])]
+    LD_HL_D16 = 0x21,
+
+    #[instruction(regs = ["HL", "A"], instruction_type = "LdIndHLIncA", len = 0, cycles = [8])]
+    LD_IND_HL_INC_A = 0x22,
+
+    #[instruction(regs = ["HL"], instruction_type = "IncRr", len = 0, cycles = [8])]
+    INC_HL = 0x23,
+
+    #[instruction(regs = ["H"], instruction_type = "IncR", len = 0, cycles = [4])]
+    INC_H = 0x24,
+
+    #[instruction(regs = ["H"], instruction_type = "DecR", len = 0, cycles = [4])]
+    DEC_H = 0x25,
+
+    #[instruction(regs = ["H"], instruction_type = "LdRD8", len = 1, cycles = [8])]
+    LD_H_D8 = 0x26,
+
+    #[instruction(instruction_type = "Daa", len = 0, cycles = [4])]
+    DAA = 0x27,
+
+    #[instruction(instruction_type = "Jr", len = 1, cycles = [12, 8])]
+    JR_Z_R8 = 0x28,
+
+    #[instruction(regs = ["HL", "HL"], instruction_type = "AddRrRr", len = 0, cycles = [8])]
+    ADD_HL_HL = 0x29,
+
+    #[instruction(regs = ["A", "HL"], instruction_type = "LdAIndHLInc", len = 0, cycles = [8])]
+    LD_A_IND_HL_INC = 0x2a,
+
+    #[instruction(regs = ["HL"], instruction_type = "DecRr", len = 0, cycles = [8])]
+    DEC_HL = 0x2b,
+
+    #[instruction(regs = ["L"], instruction_type = "IncR", len = 0, cycles = [4])]
+    INC_L = 0x2c,
+
+    #[instruction(regs = ["L"], instruction_type = "DecR", len = 0, cycles = [4])]
+    DEC_L = 0x2d,
+
+    #[instruction(regs = ["L"], instruction_type = "LdRD8", len = 1, cycles = [8])]
+    LD_L_D8 = 0x2e,
+
+    #[instruction(instruction_type = "Cpl", len = 0, cycles = [4])]
+    CPL = 0x2f,
+
+    #[instruction(instruction_type = "Jr", len = 1, cycles = [12, 8])]
+    JR_NC_R8 = 0x30,
+
+    #[instruction(regs = ["SP"], instruction_type = "LdRrD16", len = 2, cycles = [12])]
+    LD_SP_D16 = 0x31,
+
+    #[instruction(regs = ["HL", "A"], instruction_type = "LdIndHlDecA", len = 0, cycles = [8])]
+    LD_IND_HL_DEC_A = 0x32,
+
+    #[instruction(regs = ["SP"], instruction_type = "IncRr", len = 0, cycles = [8])]
+    INC_SP = 0x33,
+
+    #[instruction(regs = ["HL"], instruction_type = "DecIndHl", len = 0, cycles = [12])]
+    DEC_IND_HL = 0x35,
+
+    #[instruction(regs = ["HL"], instruction_type = "LdIndHlD8", len = 1, cycles = [12])]
+    LD_IND_HL_D8 = 0x36,
+
+    #[instruction(instruction_type = "Scf", len = 0, cycles = [4])]
+    SCF = 0x37,
+
+    #[instruction(instruction_type = "Jr", len = 1, cycles = [12, 8])]
+    JR_C_R8 = 0x38,
+
+    #[instruction(regs = ["HL", "SP"], instruction_type = "AddRrRr", len = 0, cycles = [8])]
+    ADD_HL_SP = 0x39,
+
+    #[instruction(regs = ["SP"], instruction_type = "DecRr", len = 0, cycles = [8])]
+    DEC_SP = 0x3b,
+
+    #[instruction(regs = ["A"], instruction_type = "IncR", len = 0, cycles = [4])]
+    INC_A = 0x3c,
+
+    #[instruction(regs = ["A"], instruction_type = "DecR", len = 0, cycles = [4])]
+    DEC_A = 0x3d,
+
+    #[instruction(regs = ["A"], instruction_type = "LdRD8", len = 1, cycles = [8])]
+    LD_A_D8 = 0x3e,
+
+    #[instruction(instruction_type = "Ccf", len = 0, cycles = [4])]
+    CCF = 0x3f,
+
+    #[instruction(regs = ["B", "B"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_B_B = 0x40,
+
+    #[instruction(regs = ["B", "C"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_B_C = 0x41,
+
+    #[instruction(regs = ["B", "D"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_B_D = 0x42,
+
+    #[instruction(regs = ["B", "E"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_B_E = 0x43,
+
+    #[instruction(regs = ["B", "H"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_B_H = 0x44,
+
+    #[instruction(regs = ["B", "L"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_B_L = 0x45,
+
+    #[instruction(regs = ["B", "HL"], instruction_type = "LdRIndRr", len = 0, cycles = [8])]
+    LD_B_IND_HL = 0x46,
+
+    #[instruction(regs = ["B", "A"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_B_A = 0x47,
+
+    #[instruction(regs = ["C", "B"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_C_B = 0x48,
+
+    #[instruction(regs = ["C", "C"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_C_C = 0x49,
+
+    #[instruction(regs = ["C", "D"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_C_D = 0x4a,
+
+    #[instruction(regs = ["C", "E"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_C_E = 0x4b,
+
+    #[instruction(regs = ["C", "H"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_C_H = 0x4c,
+
+    #[instruction(regs = ["C", "L"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_C_L = 0x4d,
+
+    #[instruction(regs = ["C", "HL"], instruction_type = "LdRIndRr", len = 0, cycles = [8])]
+    LD_C_IND_HL = 0x4e,
+
+    #[instruction(regs = ["C", "A"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_C_A = 0x4f,
+
+    #[instruction(regs = ["D", "B"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_D_B = 0x50,
+
+    #[instruction(regs = ["D", "C"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_D_C = 0x51,
+
+    #[instruction(regs = ["D", "D"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_D_D = 0x52,
+
+    #[instruction(regs = ["D", "E"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_D_E = 0x53,
+
+    #[instruction(regs = ["D", "H"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_D_H = 0x54,
+
+    #[instruction(regs = ["D", "L"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_D_L = 0x55,
+
+    #[instruction(regs = ["D", "HL"], instruction_type = "LdRIndRr", len = 0, cycles = [8])]
+    LD_D_IND_HL = 0x56,
+
+    #[instruction(regs = ["D", "A"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_D_A = 0x57,
+
+    #[instruction(regs = ["E", "B"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_E_B = 0x58,
+
+    #[instruction(regs = ["E", "C"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_E_C = 0x59,
+
+    #[instruction(regs = ["E", "D"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_E_D = 0x5a,
+
+    #[instruction(regs = ["E", "E"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_E_E = 0x5b,
+
+    #[instruction(regs = ["E", "H"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_E_H = 0x5c,
+
+    #[instruction(regs = ["E", "L"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_E_L = 0x5d,
+
+    #[instruction(regs = ["E", "HL"], instruction_type = "LdRIndRr", len = 0, cycles = [8])]
+    LD_E_IND_HL = 0x5e,
+
+    #[instruction(regs = ["E", "A"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_E_A = 0x5f,
+
+    #[instruction(regs = ["H", "B"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_H_B = 0x60,
+
+    #[instruction(regs = ["H", "C"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_H_C = 0x61,
+
+    #[instruction(regs = ["H", "D"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_H_D = 0x62,
+
+    #[instruction(regs = ["H", "E"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_H_E = 0x63,
+
+    #[instruction(regs = ["H", "H"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_H_H = 0x64,
+
+    #[instruction(regs = ["H", "L"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_H_L = 0x65,
+
+    #[instruction(regs = ["H", "HL"], instruction_type = "LdRIndRr", len = 0, cycles = [8])]
+    LD_H_IND_HL = 0x66,
+
+    #[instruction(regs = ["H", "A"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_H_A = 0x67,
+
+    #[instruction(regs = ["L", "B"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_L_B = 0x68,
+
+    #[instruction(regs = ["L", "C"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_L_C = 0x69,
+
+    #[instruction(regs = ["L", "D"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_L_D = 0x6a,
+
+    #[instruction(regs = ["L", "E"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_L_E = 0x6b,
+
+    #[instruction(regs = ["L", "H"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_L_H = 0x6c,
+
+    #[instruction(regs = ["L", "L"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_L_L = 0x6d,
+
+    #[instruction(regs = ["L", "HL"], instruction_type = "LdRIndRr", len = 0, cycles = [8])]
+    LD_L_IND_HL = 0x6e,
+
+    #[instruction(regs = ["L", "A"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_L_A = 0x6f,
+
+    #[instruction(regs = ["HL", "B"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
+    LD_IND_HL_B = 0x70,
+
+    #[instruction(regs = ["HL", "C"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
+    LD_IND_HL_C = 0x71,
+
+    #[instruction(regs = ["HL", "D"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
+    LD_IND_HL_D = 0x72,
+
+    #[instruction(regs = ["HL", "E"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
+    LD_IND_HL_E = 0x73,
+
+    #[instruction(regs = ["HL", "H"], instruction_type = "LdIndRrR", len = 0, cycles = [4])]
+    LD_IND_HL_H = 0x74,
+
+    #[instruction(regs = ["HL", "L"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
+    LD_IND_HL_L = 0x75,
+
+    #[instruction(regs = ["HL", "A"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
+    LD_IND_HL_A = 0x77,
+
+    #[instruction(regs = ["A", "B"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_A_B = 0x78,
+
+    #[instruction(regs = ["A", "C"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_A_C = 0x79,
+
+    #[instruction(regs = ["A", "D"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_A_D = 0x7a,
+
+    #[instruction(regs = ["A", "E"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_A_E = 0x7b,
+
+    #[instruction(regs = ["A", "H"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_A_H = 0x7c,
+
+    #[instruction(regs = ["A", "L"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_A_L = 0x7d,
+
+    #[instruction(regs = ["A", "HL"], instruction_type = "LdRIndRr", len = 0, cycles = [8])]
+    LD_A_IND_HL = 0x7e,
+
+    #[instruction(regs = ["A", "A"], instruction_type = "LdRR", len = 0, cycles = [4])]
+    LD_A_A = 0x7f,
+
+    #[instruction(regs = ["B"], instruction_type = "AddR", len = 0, cycles = [4])]
+    ADD_B = 0x80,
+
+    #[instruction(regs = ["C"], instruction_type = "AddR", len = 0, cycles = [4])]
+    ADD_C = 0x81,
+
+    #[instruction(regs = ["D"], instruction_type = "AddR", len = 0, cycles = [4])]
+    ADD_D = 0x82,
+
+    #[instruction(regs = ["E"], instruction_type = "AddR", len = 0, cycles = [4])]
+    ADD_E = 0x83,
+
+    #[instruction(regs = ["H"], instruction_type = "AddR", len = 0, cycles = [4])]
+    ADD_H = 0x84,
+
+    #[instruction(regs = ["L"], instruction_type = "AddR", len = 0, cycles = [4])]
+    ADD_L = 0x85,
+
+    #[instruction(regs = ["A", "HL"], instruction_type = "AddAIndHl", len = 0, cycles = [8])]
+    ADD_A_IND_HL = 0x86,
+
+    #[instruction(regs = ["A"], instruction_type = "AddR", len = 0, cycles = [4])]
+    ADD_A = 0x87,
+
+    #[instruction(regs = ["B"], instruction_type = "AdcR", len = 0, cycles = [4])]
+    ADC_B = 0x88,
+
+    #[instruction(regs = ["C"], instruction_type = "AdcR", len = 0, cycles = [4])]
+    ADC_C = 0x89,
+
+    #[instruction(regs = ["D"], instruction_type = "AdcR", len = 0, cycles = [4])]
+    ADC_D = 0x8a,
+
+    #[instruction(regs = ["E"], instruction_type = "AdcR", len = 0, cycles = [4])]
+    ADC_E = 0x8b,
+
+    #[instruction(regs = ["H"], instruction_type = "AdcR", len = 0, cycles = [4])]
+    ADC_H = 0x8c,
+
+    #[instruction(regs = ["L"], instruction_type = "AdcR", len = 0, cycles = [4])]
+    ADC_L = 0x8d,
+
+    #[instruction(regs = ["A"], instruction_type = "AdcR", len = 0, cycles = [4])]
+    ADC_A = 0x8f,
+
+    #[instruction(regs = ["B"], instruction_type = "SubR", len = 0, cycles = [4])]
+    SUB_B = 0x90,
+
+    #[instruction(regs = ["C"], instruction_type = "SubR", len = 0, cycles = [4])]
+    SUB_C = 0x91,
+
+    #[instruction(regs = ["D"], instruction_type = "SubR", len = 0, cycles = [4])]
+    SUB_D = 0x92,
+
+    #[instruction(regs = ["E"], instruction_type = "SubR", len = 0, cycles = [4])]
+    SUB_E = 0x93,
+
+    #[instruction(regs = ["H"], instruction_type = "SubR", len = 0, cycles = [4])]
+    SUB_H = 0x94,
+
+    #[instruction(regs = ["L"], instruction_type = "SubR", len = 0, cycles = [4])]
+    SUB_L = 0x95,
+
+    #[instruction(regs = ["A"], instruction_type = "SubR", len = 0, cycles = [4])]
+    SUB_A = 0x97,
+
+    #[instruction(regs = ["B"], instruction_type = "SbcR", len = 0, cycles = [4])]
+    SBC_B = 0x98,
+
+    #[instruction(regs = ["C"], instruction_type = "SbcR", len = 0, cycles = [4])]
+    SBC_C = 0x99,
+
+    #[instruction(regs = ["D"], instruction_type = "SbcR", len = 0, cycles = [4])]
+    SBC_D = 0x9a,
+
+    #[instruction(regs = ["E"], instruction_type = "SbcR", len = 0, cycles = [4])]
+    SBC_E = 0x9b,
+
+    #[instruction(regs = ["H"], instruction_type = "SbcR", len = 0, cycles = [4])]
+    SBC_H = 0x9c,
+
+    #[instruction(regs = ["L"], instruction_type = "SbcR", len = 0, cycles = [4])]
+    SBC_L = 0x9d,
+
+    #[instruction(regs = ["A"], instruction_type = "SbcR", len = 0, cycles = [4])]
+    SBC_A = 0x9f,
+
+    #[instruction(regs = ["B"], instruction_type = "AndR", len = 0, cycles = [4])]
+    AND_B = 0xa0,
+
+    #[instruction(regs = ["C"], instruction_type = "AndR", len = 0, cycles = [4])]
+    AND_C = 0xa1,
+
+    #[instruction(regs = ["D"], instruction_type = "AndR", len = 0, cycles = [4])]
+    AND_D = 0xa2,
+
+    #[instruction(regs = ["E"], instruction_type = "AndR", len = 0, cycles = [4])]
+    AND_E = 0xa3,
+
+    #[instruction(regs = ["H"], instruction_type = "AndR", len = 0, cycles = [4])]
+    AND_H = 0xa4,
+
+    #[instruction(regs = ["L"], instruction_type = "AndR", len = 0, cycles = [4])]
+    AND_L = 0xa5,
+
+    #[instruction(regs = ["A"], instruction_type = "AndR", len = 0, cycles = [4])]
+    AND_A = 0xa7,
+
+    #[instruction(regs = ["B"], instruction_type = "XorR", len = 0, cycles = [4])]
+    XOR_B = 0xa8,
+
+    #[instruction(regs = ["C"], instruction_type = "XorR", len = 0, cycles = [4])]
+    XOR_C = 0xa9,
+
+    #[instruction(regs = ["D"], instruction_type = "XorR", len = 0, cycles = [4])]
+    XOR_D = 0xaa,
+
+    #[instruction(regs = ["E"], instruction_type = "XorR", len = 0, cycles = [4])]
+    XOR_E = 0xab,
+
+    #[instruction(regs = ["H"], instruction_type = "XorR", len = 0, cycles = [4])]
+    XOR_H = 0xac,
+
+    #[instruction(regs = ["L"], instruction_type = "XorR", len = 0, cycles = [4])]
+    XOR_L = 0xad,
+
+    #[instruction(regs = ["A", "HL"], instruction_type = "XorAIndHl", len = 0, cycles = [8])]
+    XOR_A_IND_HL = 0xae,
+
+    #[instruction(regs = ["A"], instruction_type = "XorR", len = 0, cycles = [4])]
+    XOR_A = 0xaf,
+
+    #[instruction(regs = ["B"], instruction_type = "OrR", len = 0, cycles = [4])]
+    OR_B = 0xb0,
+
+    #[instruction(regs = ["C"], instruction_type = "OrR", len = 0, cycles = [4])]
+    OR_C = 0xb1,
+
+    #[instruction(regs = ["D"], instruction_type = "OrR", len = 0, cycles = [4])]
+    OR_D = 0xb2,
+
+    #[instruction(regs = ["E"], instruction_type = "OrR", len = 0, cycles = [4])]
+    OR_E = 0xb3,
+
+    #[instruction(regs = ["H"], instruction_type = "OrR", len = 0, cycles = [4])]
+    OR_H = 0xb4,
+
+    #[instruction(regs = ["L"], instruction_type = "OrR", len = 0, cycles = [4])]
+    OR_L = 0xb5,
+
+    #[instruction(regs = ["A", "HL"], instruction_type = "OrAIndHl", len = 0, cycles = [8])]
+    OR_A_IND_HL = 0xb6,
+
+    #[instruction(regs = ["A"], instruction_type = "OrR", len = 0, cycles = [4])]
+    OR_A = 0xb7,
+
+    #[instruction(regs = ["B"], instruction_type = "CpR", len = 0, cycles = [4])]
+    CP_B = 0xb8,
+
+    #[instruction(regs = ["C"], instruction_type = "CpR", len = 0, cycles = [4])]
+    CP_C = 0xb9,
+
+    #[instruction(regs = ["D"], instruction_type = "CpR", len = 0, cycles = [4])]
+    CP_D = 0xba,
+
+    #[instruction(regs = ["E"], instruction_type = "CpR", len = 0, cycles = [4])]
+    CP_E = 0xbb,
+
+    #[instruction(regs = ["H"], instruction_type = "CpR", len = 0, cycles = [4])]
+    CP_H = 0xbc,
+
+    #[instruction(regs = ["L"], instruction_type = "CpR", len = 0, cycles = [4])]
+    CP_L = 0xbd,
+
+    #[instruction(regs = ["A", "HL"], instruction_type = "CpAIndHl", len = 0, cycles = [8])]
+    CP_A_IND_HL = 0xbe,
+
+    #[instruction(regs = ["A"], instruction_type = "CpR", len = 0, cycles = [4])]
+    CP_A = 0xbf,
+
+    #[instruction(instruction_type = "Ret", len = 0, cycles = [20, 8])]
+    RET_NZ = 0xc0,
+
+    #[instruction(regs = ["BC"], instruction_type = "PopRr", len = 0, cycles = [12])]
+    POP_BC = 0xc1,
+
+    #[instruction(instruction_type = "Jp", len = 2, cycles = [16, 12])]
+    JP_NZ_A16 = 0xc2,
+
+    #[instruction(instruction_type = "Jp", len = 2, cycles = [16])]
+    JP_A16 = 0xc3,
+
+    #[instruction(instruction_type = "Call", len = 2, cycles = [24, 12])]
+    CALL_NZ_A16 = 0xc4,
+
+    #[instruction(regs = ["BC"], instruction_type = "PushRr", len = 0, cycles = [16])]
+    PUSH_BC = 0xc5,
+
+    #[instruction(instruction_type = "AddD8", len = 1, cycles = [8])]
+    ADD_D8 = 0xc6,
+
+    #[instruction(instruction_type = "Rst", len = 0, cycles = [16])]
+    RST00 = 0xc7,
+
+    #[instruction(instruction_type = "Ret", len = 0, cycles = [20, 8])]
+    RET_Z = 0xc8,
+
+    #[instruction(instruction_type = "Ret", len = 0, cycles = [16])]
+    RET = 0xc9,
+
+    #[instruction(instruction_type = "Jp", len = 2, cycles = [16, 12])]
+    JP_Z_A16 = 0xca,
+
+    PREFIX = 0xcb,
+
+    #[instruction(instruction_type = "Call", len = 2, cycles = [24, 12])]
+    CALL_Z_A16 = 0xcc,
+
+    #[instruction(instruction_type = "Call", len = 2, cycles = [24])]
+    CALL_A16 = 0xcd,
+
+    #[instruction(instruction_type = "AdcD8", len = 1, cycles = [8])]
+    ADC_D8 = 0xce,
+
+    #[instruction(instruction_type = "Ret", len = 0, cycles = [20, 8])]
+    RET_NC = 0xd0,
+
+    #[instruction(regs = ["DE"], instruction_type = "PopRr", len = 0, cycles = [12])]
+    POP_DE = 0xd1,
+
+    #[instruction(instruction_type = "Jp", len = 2, cycles = [16, 12])]
+    JP_NC_A16 = 0xd2,
+
+    #[instruction(instruction_type = "Call", len = 2, cycles = [24, 12])]
+    CALL_NC_A16 = 0xd4,
+
+    #[instruction(regs = ["DE"], instruction_type = "PushRr", len = 0, cycles = [16])]
+    PUSH_DE = 0xd5,
+
+    #[instruction(instruction_type = "SubD8", len = 1, cycles = [8])]
+    SUB_D8 = 0xd6,
+
+    #[instruction(instruction_type = "Ret", len = 0, cycles = [20, 8])]
+    RET_C = 0xd8,
+
+    #[instruction(instruction_type = "Ret", len = 0, cycles = [16])]
+    RETI = 0xd9,
+
+    #[instruction(instruction_type = "Jp", len = 2, cycles = [16, 12])]
+    JP_C_A16 = 0xda,
+
+    #[instruction(instruction_type = "Call", len = 2, cycles = [24, 12])]
+    CALL_C_A16 = 0xdc,
+
+    #[instruction(instruction_type = "SbcD8", len = 1, cycles = [8])]
+    SBC_D8 = 0xde,
+
+    #[instruction(regs = ["A"], instruction_type = "LdA8A", len = 1, cycles = [12])]
+    LDH_A8_A = 0xe0,
+
+    #[instruction(regs = ["HL"], instruction_type = "PopRr", len = 0, cycles = [12])]
+    POP_HL = 0xe1,
+
+    #[instruction(regs = ["C", "A"], instruction_type = "LdIndCA", len = 0, cycles = [8])]
+    LD_IND_C_A = 0xe2,
+
+    #[instruction(regs = ["HL"], instruction_type = "PushRr", len = 0, cycles = [16])]
+    PUSH_HL = 0xe5,
+
+    #[instruction(instruction_type = "AndD8", len = 1, cycles = [8])]
+    AND_D8 = 0xe6,
+
+    #[instruction(instruction_type = "AddSpE8", len = 1, cycles = [16])]
+    ADD_SP_E8 = 0xe8,
+
+    #[instruction(instruction_type = "Jp", len = 0, cycles = [4])]
+    JP_HL = 0xe9,
+
+    #[instruction(regs = ["A"], instruction_type = "LdA16A", len = 2, cycles = [16])]
+    LD_A16_A = 0xea,
+
+    #[instruction(instruction_type = "XorD8", len = 1, cycles = [8])]
+    XOR_D8 = 0xee,
+
+    #[instruction(regs = ["A"], instruction_type = "LdAA8", len = 1, cycles = [12])]
+    LDH_A_A8 = 0xf0,
+
+    #[instruction(regs = ["AF"], instruction_type = "PopRr", len = 0, cycles = [12])]
+    POP_AF = 0xf1,
+
+    #[instruction(regs = ["A", "C"], instruction_type = "LdAIndC", len = 0, cycles = [8])]
+    LD_A_IND_C = 0xf2,
+
+    #[instruction(instruction_type = "Di", len = 0, cycles = [4])]
+    DI = 0xf3,
+
+    #[instruction(regs = ["AF"], instruction_type = "PushRr", len = 0, cycles = [16])]
+    PUSH_AF = 0xf5,
+
+    #[instruction(instruction_type = "OrD8", len = 1, cycles = [8])]
+    OR_D8 = 0xf6,
+
+    #[instruction(regs = ["HL", "SP"], instruction_type = "LdHLSPE8", len = 1, cycles = [12])]
+    LD_HL_SP_E8 = 0xf8,
+
+    #[instruction(regs = ["SP", "HL"], instruction_type = "LdRrRr", len = 0, cycles = [8])]
+    LD_SP_HL = 0xf9,
+
+    #[instruction(regs = ["A"], instruction_type = "LdAA16", len = 2, cycles = [16])]
+    LD_A_A16 = 0xfa,
+
+    #[instruction(instruction_type = "Ei", len = 0, cycles = [4])]
+    EI = 0xfb,
+
+    #[instruction(instruction_type = "CpD8", len = 1, cycles = [8])]
+    CP_D8 = 0xfe,
 }
 
-#[derive(Debug, Clone, Copy, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, TryFromPrimitive, InstructionImpl)]
 #[num_enum(error_type(name = InstructionError, constructor = InstructionError::UnrecognizedPrefixedOpcode))]
+#[instruction_struct_name(PrefixedInstruction)]
 #[repr(u8)]
+#[allow(non_camel_case_types)]
 pub enum PrefixedOpcode {
-    RlcB = 0x00,
-    RlcC = 0x01,
-    RlcD = 0x02,
-    RlcE = 0x03,
-    RlcH = 0x04,
-    RlcL = 0x05,
-    RlcA = 0x07,
-    RrcB = 0x08,
-    RrcC = 0x09,
-    RrcD = 0x0a,
-    RrcE = 0x0b,
-    RrcH = 0x0c,
-    RrcL = 0x0d,
-    RrcA = 0x0f,
-    RlC = 0x11,
-    RrC = 0x19,
-    RrD = 0x1a,
-    RrE = 0x1b,
+    #[instruction(regs = ["B"], instruction_type = "RlcR", len = 0, cycles = [12])]
+    RLC_B = 0x00,
 
-    SwapA = 0x37,
-    SrlB = 0x38,
+    #[instruction(regs = ["C"], instruction_type = "RlcR", len = 0, cycles = [12])]
+    RLC_C = 0x01,
 
-    Bit0D = 0x42,
+    #[instruction(regs = ["D"], instruction_type = "RlcR", len = 0, cycles = [12])]
+    RLC_D = 0x02,
 
-    Bit7H = 0x7c,
+    #[instruction(regs = ["E"], instruction_type = "RlcR", len = 0, cycles = [12])]
+    RLC_E = 0x03,
+
+    #[instruction(regs = ["H"], instruction_type = "RlcR", len = 0, cycles = [12])]
+    RLC_H = 0x04,
+
+    #[instruction(regs = ["L"], instruction_type = "RlcR", len = 0, cycles = [12])]
+    RLC_L = 0x05,
+
+    #[instruction(regs = ["A"], instruction_type = "RlcR", len = 0, cycles = [12])]
+    RLC_A = 0x07,
+
+    #[instruction(regs = ["B"], instruction_type = "RrcR", len = 0, cycles = [12])]
+    RRC_B = 0x08,
+
+    #[instruction(regs = ["C"], instruction_type = "RrcR", len = 0, cycles = [12])]
+    RRC_C = 0x09,
+
+    #[instruction(regs = ["D"], instruction_type = "RrcR", len = 0, cycles = [12])]
+    RRC_D = 0x0a,
+
+    #[instruction(regs = ["E"], instruction_type = "RrcR", len = 0, cycles = [12])]
+    RRC_E = 0x0b,
+
+    #[instruction(regs = ["H"], instruction_type = "RrcR", len = 0, cycles = [12])]
+    RRC_H = 0x0c,
+
+    #[instruction(regs = ["L"], instruction_type = "RrcR", len = 0, cycles = [12])]
+    RRC_L = 0x0d,
+
+    #[instruction(regs = ["A"], instruction_type = "RrcR", len = 0, cycles = [12])]
+    RRC_A = 0x0f,
+
+    #[instruction(regs = ["C"], instruction_type = "RlR", len = 0, cycles = [12])]
+    RL_C = 0x11,
+
+    #[instruction(regs = ["C"], instruction_type = "RrR", len = 0, cycles = [12])]
+    RR_C = 0x19,
+
+    #[instruction(regs = ["D"], instruction_type = "RrR", len = 0, cycles = [12])]
+    RR_D = 0x1a,
+
+    #[instruction(regs = ["E"], instruction_type = "RrR", len = 0, cycles = [12])]
+    RR_E = 0x1b,
+
+    #[instruction(regs = ["A"], instruction_type = "SwapR", len = 0, cycles = [12])]
+    SWAP_A = 0x37,
+
+    #[instruction(regs = ["B"], instruction_type = "SrlR", len = 0, cycles = [12])]
+    SRL_B = 0x38,
+
+    #[instruction(regs = ["D"], instruction_type = "Bit0R", len = 0, cycles = [12])]
+    BIT0D = 0x42,
+
+    #[instruction(regs = ["H"], instruction_type = "Bit7R", len = 0, cycles = [12])]
+    BIT7H = 0x7c,
 }

@@ -2,7 +2,10 @@ use std::fmt::Display;
 
 use crate::{
     errors::InstructionError,
-    instruction::{Instruction, InstructionType, Opcode, PrefixedOpcode},
+    instruction::{
+        Instruction, InstructionType, NormalInstruction, Opcode, PrefixedInstruction,
+        PrefixedOpcode,
+    },
     mmu::{Mmu, INT_ENABLE_ADDRESS, INT_FLAG_ADDRESS},
 };
 
@@ -50,6 +53,22 @@ pub enum Reg {
     L,
 }
 
+impl From<&str> for Reg {
+    fn from(v: &str) -> Self {
+        match v {
+            "A" => Reg::A,
+            "B" => Reg::B,
+            "C" => Reg::C,
+            "D" => Reg::D,
+            "E" => Reg::E,
+            "F" => Reg::F,
+            "H" => Reg::H,
+            "L" => Reg::L,
+            _ => panic!("unrecognized reg: {v}"),
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum Reg16 {
@@ -59,6 +78,20 @@ pub enum Reg16 {
     HL,
     SP,
     PC,
+}
+
+impl From<&str> for Reg16 {
+    fn from(v: &str) -> Self {
+        match v {
+            "AF" => Reg16::AF,
+            "BC" => Reg16::BC,
+            "DE" => Reg16::DE,
+            "HL" => Reg16::HL,
+            "SP" => Reg16::SP,
+            "PC" => Reg16::PC,
+            _ => panic!("unrecognized reg: {v}"),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -286,8 +319,8 @@ impl Cpu {
     /// Execute the next instruction and return the number of T-states.
     fn exec_instruction(&mut self, mmu: &mut Mmu) -> usize {
         match self.read_instruction(mmu) {
-            Some(instruction) => {
-                let regs = instruction.regs().clone().unwrap_or_default();
+            Some(Instruction::Normal(instruction)) => {
+                let regs: Vec<&str> = instruction.regs().iter().map(String::as_str).collect();
 
                 match instruction.instruction_type() {
                     InstructionType::Nop => (),
@@ -303,7 +336,7 @@ impl Cpu {
                     InstructionType::LdAA8 => self.ldh_a_a8(&prepare_data!(instruction, 1), mmu),
                     InstructionType::LdA8A => self.ldh_a8_a(&prepare_data!(instruction, 1), mmu),
                     InstructionType::LdAIndC => self.ld_r_ind_r(Reg::A, Reg::C, mmu),
-                    InstructionType::LdRIndRR => {
+                    InstructionType::LdRIndRr => {
                         self.ld_r_ind_rr(regs[0].into(), regs[1].into(), mmu)
                     }
                     InstructionType::LdIndRrR => {
@@ -322,7 +355,7 @@ impl Cpu {
                     InstructionType::LdIndCA => self.ld_ind_c_a(mmu),
                     InstructionType::LdHLSPE8 => self.ld_hl_sp_e8(&prepare_data!(instruction, 1)),
                     InstructionType::LdRrRr => match instruction.opcode() {
-                        Opcode::LdSPHL => self.ld_sp_hl(),
+                        Opcode::LD_SP_HL => self.ld_sp_hl(),
                         _ => unreachable!(),
                     },
                     InstructionType::IncR => self.inc_r(regs[0].into()),
@@ -356,55 +389,74 @@ impl Cpu {
                     InstructionType::Ccf => self.ccf(),
                     InstructionType::Scf => self.scf(),
                     InstructionType::Jr => match instruction.opcode() {
-                        Opcode::JrR8 => self.jr_r8(&prepare_data!(instruction, 1)),
-                        Opcode::JrCR8 => self.jr_c_r8(&prepare_data!(instruction, 1)),
-                        Opcode::JrNcR8 => self.jr_nc_r8(&prepare_data!(instruction, 1)),
-                        Opcode::JrNzR8 => self.jr_nz_r8(&prepare_data!(instruction, 1)),
-                        Opcode::JrZR8 => self.jr_z_r8(&prepare_data!(instruction, 1)),
+                        Opcode::JR_R8 => self.jr_r8(&prepare_data!(instruction, 1)),
+                        Opcode::JR_C_R8 => self.jr_c_r8(&prepare_data!(instruction, 1)),
+                        Opcode::JR_NC_R8 => self.jr_nc_r8(&prepare_data!(instruction, 1)),
+                        Opcode::JR_NZ_R8 => self.jr_nz_r8(&prepare_data!(instruction, 1)),
+                        Opcode::JR_Z_R8 => self.jr_z_r8(&prepare_data!(instruction, 1)),
                         _ => unreachable!(),
                     },
                     InstructionType::Jp => match instruction.opcode() {
-                        Opcode::JpA16 => self.jp_a16(&prepare_data!(instruction, 2)),
-                        Opcode::JpHL => self.jp_hl(),
-                        Opcode::JpNcA16 => self.jp_nc_a16(&prepare_data!(instruction, 2)),
-                        Opcode::JpNzA16 => self.jp_nz_a16(&prepare_data!(instruction, 2)),
-                        Opcode::JpCA16 => self.jp_c_a16(&prepare_data!(instruction, 2)),
-                        Opcode::JpZA16 => self.jp_z_a16(&prepare_data!(instruction, 2)),
+                        Opcode::JP_A16 => self.jp_a16(&prepare_data!(instruction, 2)),
+                        Opcode::JP_HL => self.jp_hl(),
+                        Opcode::JP_NC_A16 => self.jp_nc_a16(&prepare_data!(instruction, 2)),
+                        Opcode::JP_NZ_A16 => self.jp_nz_a16(&prepare_data!(instruction, 2)),
+                        Opcode::JP_C_A16 => self.jp_c_a16(&prepare_data!(instruction, 2)),
+                        Opcode::JP_Z_A16 => self.jp_z_a16(&prepare_data!(instruction, 2)),
                         _ => unreachable!(),
                     },
                     InstructionType::Call => match instruction.opcode() {
-                        Opcode::CallA16 => self.call_a16(&prepare_data!(instruction, 2), mmu),
-                        Opcode::CallCA16 => self.call_c_a16(&prepare_data!(instruction, 2), mmu),
-                        Opcode::CallZA16 => self.call_z_a16(&prepare_data!(instruction, 2), mmu),
-                        Opcode::CallNcA16 => self.call_nc_a16(&prepare_data!(instruction, 2), mmu),
-                        Opcode::CallNzA16 => self.call_nz_a16(&prepare_data!(instruction, 2), mmu),
+                        Opcode::CALL_A16 => self.call_a16(&prepare_data!(instruction, 2), mmu),
+                        Opcode::CALL_C_A16 => self.call_c_a16(&prepare_data!(instruction, 2), mmu),
+                        Opcode::CALL_Z_A16 => self.call_z_a16(&prepare_data!(instruction, 2), mmu),
+                        Opcode::CALL_NC_A16 => {
+                            self.call_nc_a16(&prepare_data!(instruction, 2), mmu)
+                        }
+                        Opcode::CALL_NZ_A16 => {
+                            self.call_nz_a16(&prepare_data!(instruction, 2), mmu)
+                        }
                         _ => unreachable!(),
                     },
                     InstructionType::Ret => match instruction.opcode() {
-                        Opcode::Ret => self.ret(mmu),
-                        Opcode::Reti => self.reti(mmu),
-                        Opcode::RetC => self.ret_c(mmu),
-                        Opcode::RetNc => self.ret_nc(mmu),
-                        Opcode::RetZ => self.ret_z(mmu),
-                        Opcode::RetNz => self.ret_nz(mmu),
+                        Opcode::RET => self.ret(mmu),
+                        Opcode::RETI => self.reti(mmu),
+                        Opcode::RET_C => self.ret_c(mmu),
+                        Opcode::RET_NC => self.ret_nc(mmu),
+                        Opcode::RET_Z => self.ret_z(mmu),
+                        Opcode::RET_NZ => self.ret_nz(mmu),
                         _ => unreachable!(),
                     },
                     InstructionType::Rst => match instruction.opcode() {
-                        Opcode::Rst00 => self.call_a16(&[0x00, 0x00], mmu),
+                        Opcode::RST00 => self.call_a16(&[0x00, 0x00], mmu),
                         _ => unreachable!(),
                     },
                     InstructionType::Di => self.di(),
                     InstructionType::Ei => self.ei(),
+                    InstructionType::Rlca => self.rlca(),
+                    InstructionType::Rrca => self.rrca(),
+                    InstructionType::RlR => self.rl_r(regs[0].into()),
+                    InstructionType::RrR => self.rr_r(regs[0].into()),
+                    _ => unreachable!(),
+                }
+
+                let cycles = instruction.cycles(self.branched);
+                self.branched = false;
+
+                cycles
+            }
+            Some(Instruction::Prefixed(instruction)) => {
+                let regs: Vec<&str> = instruction.regs().iter().map(String::as_str).collect();
+
+                match instruction.instruction_type() {
                     InstructionType::Bit0R => self.bit_r(regs[0].into(), 0),
                     InstructionType::Bit7R => self.bit_r(regs[0].into(), 7),
-                    InstructionType::RlR => self.rl_r(regs[0].into()),
-                    InstructionType::Rlca => self.rlca(),
                     InstructionType::RlcR => self.rlc_r(regs[0].into()),
-                    InstructionType::RrR => self.rr_r(regs[0].into()),
-                    InstructionType::Rrca => self.rrca(),
                     InstructionType::RrcR => self.rrc_r(regs[0].into()),
                     InstructionType::SrlR => self.srl_r(regs[0].into()),
                     InstructionType::SwapR => self.swap_r(regs[0].into()),
+                    InstructionType::RlR => self.rl_r(regs[0].into()),
+                    InstructionType::RrR => self.rr_r(regs[0].into()),
+                    _ => unreachable!(),
                 }
 
                 let cycles = instruction.cycles(self.branched);
@@ -432,442 +484,442 @@ impl Cpu {
         let pc = self.regs.read_reg16(Reg16::PC);
 
         match opcode {
-            Opcode::Nop => Some(Instruction::nop()),
-            Opcode::LdSPD16 => {
+            Opcode::NOP => Some(NormalInstruction::nop(&[]).into()),
+            Opcode::LD_SP_D16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::ld_sp_d16(&data))
+                Some(NormalInstruction::ld_sp_d16(&data).into())
             }
-            Opcode::LdAD8 => {
+            Opcode::LD_A_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ld_a_d8(data))
+                Some(NormalInstruction::ld_a_d8(data).into())
             }
-            Opcode::LdAA16 => {
+            Opcode::LD_A_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::ld_a_a16(&data))
+                Some(NormalInstruction::ld_a_a16(&data).into())
             }
-            Opcode::LdBD8 => {
+            Opcode::LD_B_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ld_b_d8(data))
+                Some(NormalInstruction::ld_b_d8(data).into())
             }
-            Opcode::LdCD8 => {
+            Opcode::LD_C_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ld_c_d8(data))
+                Some(NormalInstruction::ld_c_d8(data).into())
             }
-            Opcode::LdDD8 => {
+            Opcode::LD_D_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ld_d_d8(data))
+                Some(NormalInstruction::ld_d_d8(data).into())
             }
-            Opcode::LdHD8 => {
+            Opcode::LD_H_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ld_h_d8(data))
+                Some(NormalInstruction::ld_h_d8(data).into())
             }
-            Opcode::LdED8 => {
+            Opcode::LD_E_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ld_e_d8(data))
+                Some(NormalInstruction::ld_e_d8(data).into())
             }
-            Opcode::LdLD8 => {
+            Opcode::LD_L_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ld_l_d8(data))
+                Some(NormalInstruction::ld_l_d8(data).into())
             }
-            Opcode::LdhAA8 => {
+            Opcode::LDH_A_A8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ldh_a_a8(data))
+                Some(NormalInstruction::ldh_a_a8(data).into())
             }
-            Opcode::LdhA8A => {
+            Opcode::LDH_A8_A => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ldh_a8_a(data))
+                Some(NormalInstruction::ldh_a8_a(data).into())
             }
-            Opcode::LdHLSPE8 => {
+            Opcode::LD_HL_SP_E8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ld_hl_sp_e8(data))
+                Some(NormalInstruction::ld_hl_sp_e8(data).into())
             }
-            Opcode::AddSPE8 => {
+            Opcode::ADD_SP_E8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::add_sp_e8(data))
+                Some(NormalInstruction::add_sp_e8(data).into())
             }
-            Opcode::LdSPHL => Some(Instruction::ld_sp_hl(&[])),
-            Opcode::LdAA => Some(Instruction::ld_a_a(&[])),
-            Opcode::LdAB => Some(Instruction::ld_a_b(&[])),
-            Opcode::LdAC => Some(Instruction::ld_a_c(&[])),
-            Opcode::LdAD => Some(Instruction::ld_a_d(&[])),
-            Opcode::LdAE => Some(Instruction::ld_a_e(&[])),
-            Opcode::LdAH => Some(Instruction::ld_a_h(&[])),
-            Opcode::LdAL => Some(Instruction::ld_a_l(&[])),
-            Opcode::LdBA => Some(Instruction::ld_b_a(&[])),
-            Opcode::LdBB => Some(Instruction::ld_b_b(&[])),
-            Opcode::LdBC => Some(Instruction::ld_b_c(&[])),
-            Opcode::LdBD => Some(Instruction::ld_b_d(&[])),
-            Opcode::LdBE => Some(Instruction::ld_b_e(&[])),
-            Opcode::LdBH => Some(Instruction::ld_b_h(&[])),
-            Opcode::LdBL => Some(Instruction::ld_b_l(&[])),
-            Opcode::LdCA => Some(Instruction::ld_c_a(&[])),
-            Opcode::LdCB => Some(Instruction::ld_c_b(&[])),
-            Opcode::LdCC => Some(Instruction::ld_c_c(&[])),
-            Opcode::LdCD => Some(Instruction::ld_c_d(&[])),
-            Opcode::LdCE => Some(Instruction::ld_c_e(&[])),
-            Opcode::LdCH => Some(Instruction::ld_c_h(&[])),
-            Opcode::LdCL => Some(Instruction::ld_c_l(&[])),
-            Opcode::LdDA => Some(Instruction::ld_d_a(&[])),
-            Opcode::LdDB => Some(Instruction::ld_d_b(&[])),
-            Opcode::LdDC => Some(Instruction::ld_d_c(&[])),
-            Opcode::LdDD => Some(Instruction::ld_d_d(&[])),
-            Opcode::LdDE => Some(Instruction::ld_d_e(&[])),
-            Opcode::LdDH => Some(Instruction::ld_d_h(&[])),
-            Opcode::LdDL => Some(Instruction::ld_d_l(&[])),
-            Opcode::LdEA => Some(Instruction::ld_e_a(&[])),
-            Opcode::LdEB => Some(Instruction::ld_e_b(&[])),
-            Opcode::LdEC => Some(Instruction::ld_e_c(&[])),
-            Opcode::LdED => Some(Instruction::ld_e_d(&[])),
-            Opcode::LdEE => Some(Instruction::ld_e_e(&[])),
-            Opcode::LdEH => Some(Instruction::ld_e_h(&[])),
-            Opcode::LdEL => Some(Instruction::ld_e_l(&[])),
-            Opcode::LdHA => Some(Instruction::ld_h_a(&[])),
-            Opcode::LdHB => Some(Instruction::ld_h_b(&[])),
-            Opcode::LdHC => Some(Instruction::ld_h_c(&[])),
-            Opcode::LdHD => Some(Instruction::ld_h_d(&[])),
-            Opcode::LdHE => Some(Instruction::ld_h_e(&[])),
-            Opcode::LdHH => Some(Instruction::ld_h_h(&[])),
-            Opcode::LdHL => Some(Instruction::ld_h_l(&[])),
-            Opcode::LdLA => Some(Instruction::ld_l_a(&[])),
-            Opcode::LdLB => Some(Instruction::ld_l_b(&[])),
-            Opcode::LdLC => Some(Instruction::ld_l_c(&[])),
-            Opcode::LdLD => Some(Instruction::ld_l_d(&[])),
-            Opcode::LdLE => Some(Instruction::ld_l_e(&[])),
-            Opcode::LdLH => Some(Instruction::ld_l_h(&[])),
-            Opcode::LdLL => Some(Instruction::ld_l_l(&[])),
-            Opcode::PushAF => Some(Instruction::push_af(&[])),
-            Opcode::PushBC => Some(Instruction::push_bc(&[])),
-            Opcode::PushDE => Some(Instruction::push_de(&[])),
-            Opcode::PushHL => Some(Instruction::push_hl(&[])),
-            Opcode::PopAF => Some(Instruction::pop_af(&[])),
-            Opcode::PopBC => Some(Instruction::pop_bc(&[])),
-            Opcode::PopDE => Some(Instruction::pop_de(&[])),
-            Opcode::PopHL => Some(Instruction::pop_hl(&[])),
-            Opcode::IncA => Some(Instruction::inc_a(&[])),
-            Opcode::IncB => Some(Instruction::inc_b(&[])),
-            Opcode::IncC => Some(Instruction::inc_c(&[])),
-            Opcode::IncD => Some(Instruction::inc_d(&[])),
-            Opcode::IncE => Some(Instruction::inc_e(&[])),
-            Opcode::IncBC => Some(Instruction::inc_bc(&[])),
-            Opcode::IncDE => Some(Instruction::inc_de(&[])),
-            Opcode::IncHL => Some(Instruction::inc_hl(&[])),
-            Opcode::IncSP => Some(Instruction::inc_sp(&[])),
-            Opcode::IncH => Some(Instruction::inc_h(&[])),
-            Opcode::IncL => Some(Instruction::inc_l(&[])),
-            Opcode::Daa => Some(Instruction::daa(&[])),
-            Opcode::DecA => Some(Instruction::dec_a(&[])),
-            Opcode::DecB => Some(Instruction::dec_b(&[])),
-            Opcode::DecC => Some(Instruction::dec_c(&[])),
-            Opcode::DecD => Some(Instruction::dec_d(&[])),
-            Opcode::DecE => Some(Instruction::dec_e(&[])),
-            Opcode::DecH => Some(Instruction::dec_h(&[])),
-            Opcode::DecL => Some(Instruction::dec_l(&[])),
-            Opcode::DecBC => Some(Instruction::dec_bc(&[])),
-            Opcode::DecDE => Some(Instruction::dec_de(&[])),
-            Opcode::DecHL => Some(Instruction::dec_hl(&[])),
-            Opcode::DecSP => Some(Instruction::dec_sp(&[])),
-            Opcode::DecIndHL => Some(Instruction::dec_ind_hl(&[])),
-            Opcode::OrA => Some(Instruction::or_a(&[])),
-            Opcode::OrAIndHL => Some(Instruction::or_a_ind_hl(&[])),
-            Opcode::OrB => Some(Instruction::or_b(&[])),
-            Opcode::OrC => Some(Instruction::or_c(&[])),
-            Opcode::OrD => Some(Instruction::or_d(&[])),
-            Opcode::OrE => Some(Instruction::or_e(&[])),
-            Opcode::OrH => Some(Instruction::or_h(&[])),
-            Opcode::OrL => Some(Instruction::or_l(&[])),
-            Opcode::OrD8 => {
+            Opcode::LD_SP_HL => Some(NormalInstruction::ld_sp_hl(&[]).into()),
+            Opcode::LD_A_A => Some(NormalInstruction::ld_a_a(&[]).into()),
+            Opcode::LD_A_B => Some(NormalInstruction::ld_a_b(&[]).into()),
+            Opcode::LD_A_C => Some(NormalInstruction::ld_a_c(&[]).into()),
+            Opcode::LD_A_D => Some(NormalInstruction::ld_a_d(&[]).into()),
+            Opcode::LD_A_E => Some(NormalInstruction::ld_a_e(&[]).into()),
+            Opcode::LD_A_H => Some(NormalInstruction::ld_a_h(&[]).into()),
+            Opcode::LD_A_L => Some(NormalInstruction::ld_a_l(&[]).into()),
+            Opcode::LD_B_A => Some(NormalInstruction::ld_b_a(&[]).into()),
+            Opcode::LD_B_B => Some(NormalInstruction::ld_b_b(&[]).into()),
+            Opcode::LD_B_C => Some(NormalInstruction::ld_b_c(&[]).into()),
+            Opcode::LD_B_D => Some(NormalInstruction::ld_b_d(&[]).into()),
+            Opcode::LD_B_E => Some(NormalInstruction::ld_b_e(&[]).into()),
+            Opcode::LD_B_H => Some(NormalInstruction::ld_b_h(&[]).into()),
+            Opcode::LD_B_L => Some(NormalInstruction::ld_b_l(&[]).into()),
+            Opcode::LD_C_A => Some(NormalInstruction::ld_c_a(&[]).into()),
+            Opcode::LD_C_B => Some(NormalInstruction::ld_c_b(&[]).into()),
+            Opcode::LD_C_C => Some(NormalInstruction::ld_c_c(&[]).into()),
+            Opcode::LD_C_D => Some(NormalInstruction::ld_c_d(&[]).into()),
+            Opcode::LD_C_E => Some(NormalInstruction::ld_c_e(&[]).into()),
+            Opcode::LD_C_H => Some(NormalInstruction::ld_c_h(&[]).into()),
+            Opcode::LD_C_L => Some(NormalInstruction::ld_c_l(&[]).into()),
+            Opcode::LD_D_A => Some(NormalInstruction::ld_d_a(&[]).into()),
+            Opcode::LD_D_B => Some(NormalInstruction::ld_d_b(&[]).into()),
+            Opcode::LD_D_C => Some(NormalInstruction::ld_d_c(&[]).into()),
+            Opcode::LD_D_D => Some(NormalInstruction::ld_d_d(&[]).into()),
+            Opcode::LD_D_E => Some(NormalInstruction::ld_d_e(&[]).into()),
+            Opcode::LD_D_H => Some(NormalInstruction::ld_d_h(&[]).into()),
+            Opcode::LD_D_L => Some(NormalInstruction::ld_d_l(&[]).into()),
+            Opcode::LD_E_A => Some(NormalInstruction::ld_e_a(&[]).into()),
+            Opcode::LD_E_B => Some(NormalInstruction::ld_e_b(&[]).into()),
+            Opcode::LD_E_C => Some(NormalInstruction::ld_e_c(&[]).into()),
+            Opcode::LD_E_D => Some(NormalInstruction::ld_e_d(&[]).into()),
+            Opcode::LD_E_E => Some(NormalInstruction::ld_e_e(&[]).into()),
+            Opcode::LD_E_H => Some(NormalInstruction::ld_e_h(&[]).into()),
+            Opcode::LD_E_L => Some(NormalInstruction::ld_e_l(&[]).into()),
+            Opcode::LD_H_A => Some(NormalInstruction::ld_h_a(&[]).into()),
+            Opcode::LD_H_B => Some(NormalInstruction::ld_h_b(&[]).into()),
+            Opcode::LD_H_C => Some(NormalInstruction::ld_h_c(&[]).into()),
+            Opcode::LD_H_D => Some(NormalInstruction::ld_h_d(&[]).into()),
+            Opcode::LD_H_E => Some(NormalInstruction::ld_h_e(&[]).into()),
+            Opcode::LD_H_H => Some(NormalInstruction::ld_h_h(&[]).into()),
+            Opcode::LD_H_L => Some(NormalInstruction::ld_h_l(&[]).into()),
+            Opcode::LD_L_A => Some(NormalInstruction::ld_l_a(&[]).into()),
+            Opcode::LD_L_B => Some(NormalInstruction::ld_l_b(&[]).into()),
+            Opcode::LD_L_C => Some(NormalInstruction::ld_l_c(&[]).into()),
+            Opcode::LD_L_D => Some(NormalInstruction::ld_l_d(&[]).into()),
+            Opcode::LD_L_E => Some(NormalInstruction::ld_l_e(&[]).into()),
+            Opcode::LD_L_H => Some(NormalInstruction::ld_l_h(&[]).into()),
+            Opcode::LD_L_L => Some(NormalInstruction::ld_l_l(&[]).into()),
+            Opcode::PUSH_AF => Some(NormalInstruction::push_af(&[]).into()),
+            Opcode::PUSH_BC => Some(NormalInstruction::push_bc(&[]).into()),
+            Opcode::PUSH_DE => Some(NormalInstruction::push_de(&[]).into()),
+            Opcode::PUSH_HL => Some(NormalInstruction::push_hl(&[]).into()),
+            Opcode::POP_AF => Some(NormalInstruction::pop_af(&[]).into()),
+            Opcode::POP_BC => Some(NormalInstruction::pop_bc(&[]).into()),
+            Opcode::POP_DE => Some(NormalInstruction::pop_de(&[]).into()),
+            Opcode::POP_HL => Some(NormalInstruction::pop_hl(&[]).into()),
+            Opcode::INC_A => Some(NormalInstruction::inc_a(&[]).into()),
+            Opcode::INC_B => Some(NormalInstruction::inc_b(&[]).into()),
+            Opcode::INC_C => Some(NormalInstruction::inc_c(&[]).into()),
+            Opcode::INC_D => Some(NormalInstruction::inc_d(&[]).into()),
+            Opcode::INC_E => Some(NormalInstruction::inc_e(&[]).into()),
+            Opcode::INC_BC => Some(NormalInstruction::inc_bc(&[]).into()),
+            Opcode::INC_DE => Some(NormalInstruction::inc_de(&[]).into()),
+            Opcode::INC_HL => Some(NormalInstruction::inc_hl(&[]).into()),
+            Opcode::INC_SP => Some(NormalInstruction::inc_sp(&[]).into()),
+            Opcode::INC_H => Some(NormalInstruction::inc_h(&[]).into()),
+            Opcode::INC_L => Some(NormalInstruction::inc_l(&[]).into()),
+            Opcode::DAA => Some(NormalInstruction::daa(&[]).into()),
+            Opcode::DEC_A => Some(NormalInstruction::dec_a(&[]).into()),
+            Opcode::DEC_B => Some(NormalInstruction::dec_b(&[]).into()),
+            Opcode::DEC_C => Some(NormalInstruction::dec_c(&[]).into()),
+            Opcode::DEC_D => Some(NormalInstruction::dec_d(&[]).into()),
+            Opcode::DEC_E => Some(NormalInstruction::dec_e(&[]).into()),
+            Opcode::DEC_H => Some(NormalInstruction::dec_h(&[]).into()),
+            Opcode::DEC_L => Some(NormalInstruction::dec_l(&[]).into()),
+            Opcode::DEC_BC => Some(NormalInstruction::dec_bc(&[]).into()),
+            Opcode::DEC_DE => Some(NormalInstruction::dec_de(&[]).into()),
+            Opcode::DEC_HL => Some(NormalInstruction::dec_hl(&[]).into()),
+            Opcode::DEC_SP => Some(NormalInstruction::dec_sp(&[]).into()),
+            Opcode::DEC_IND_HL => Some(NormalInstruction::dec_ind_hl(&[]).into()),
+            Opcode::OR_A => Some(NormalInstruction::or_a(&[]).into()),
+            Opcode::OR_A_IND_HL => Some(NormalInstruction::or_a_ind_hl(&[]).into()),
+            Opcode::OR_B => Some(NormalInstruction::or_b(&[]).into()),
+            Opcode::OR_C => Some(NormalInstruction::or_c(&[]).into()),
+            Opcode::OR_D => Some(NormalInstruction::or_d(&[]).into()),
+            Opcode::OR_E => Some(NormalInstruction::or_e(&[]).into()),
+            Opcode::OR_H => Some(NormalInstruction::or_h(&[]).into()),
+            Opcode::OR_L => Some(NormalInstruction::or_l(&[]).into()),
+            Opcode::OR_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::or_d8(data))
+                Some(NormalInstruction::or_d8(data).into())
             }
-            Opcode::XorA => Some(Instruction::xor_a(&[])),
-            Opcode::XorB => Some(Instruction::xor_b(&[])),
-            Opcode::XorC => Some(Instruction::xor_c(&[])),
-            Opcode::XorD => Some(Instruction::xor_d(&[])),
-            Opcode::XorE => Some(Instruction::xor_e(&[])),
-            Opcode::XorH => Some(Instruction::xor_h(&[])),
-            Opcode::XorL => Some(Instruction::xor_l(&[])),
-            Opcode::XorD8 => {
+            Opcode::XOR_A => Some(NormalInstruction::xor_a(&[]).into()),
+            Opcode::XOR_B => Some(NormalInstruction::xor_b(&[]).into()),
+            Opcode::XOR_C => Some(NormalInstruction::xor_c(&[]).into()),
+            Opcode::XOR_D => Some(NormalInstruction::xor_d(&[]).into()),
+            Opcode::XOR_E => Some(NormalInstruction::xor_e(&[]).into()),
+            Opcode::XOR_H => Some(NormalInstruction::xor_h(&[]).into()),
+            Opcode::XOR_L => Some(NormalInstruction::xor_l(&[]).into()),
+            Opcode::XOR_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::xor_d8(data))
+                Some(NormalInstruction::xor_d8(data).into())
             }
-            Opcode::XorAIndHL => Some(Instruction::xor_a_ind_hl(&[])),
-            Opcode::AndA => Some(Instruction::and_a(&[])),
-            Opcode::AndB => Some(Instruction::and_b(&[])),
-            Opcode::AndC => Some(Instruction::and_c(&[])),
-            Opcode::AndD => Some(Instruction::and_d(&[])),
-            Opcode::AndE => Some(Instruction::and_e(&[])),
-            Opcode::AndH => Some(Instruction::and_h(&[])),
-            Opcode::AndL => Some(Instruction::and_l(&[])),
-            Opcode::AndD8 => {
+            Opcode::XOR_A_IND_HL => Some(NormalInstruction::xor_a_ind_hl(&[]).into()),
+            Opcode::AND_A => Some(NormalInstruction::and_a(&[]).into()),
+            Opcode::AND_B => Some(NormalInstruction::and_b(&[]).into()),
+            Opcode::AND_C => Some(NormalInstruction::and_c(&[]).into()),
+            Opcode::AND_D => Some(NormalInstruction::and_d(&[]).into()),
+            Opcode::AND_E => Some(NormalInstruction::and_e(&[]).into()),
+            Opcode::AND_H => Some(NormalInstruction::and_h(&[]).into()),
+            Opcode::AND_L => Some(NormalInstruction::and_l(&[]).into()),
+            Opcode::AND_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::and_d8(data))
+                Some(NormalInstruction::and_d8(data).into())
             }
-            Opcode::AdcA => Some(Instruction::adc_a(&[])),
-            Opcode::AdcB => Some(Instruction::adc_b(&[])),
-            Opcode::AdcC => Some(Instruction::adc_c(&[])),
-            Opcode::AdcD => Some(Instruction::adc_d(&[])),
-            Opcode::AdcE => Some(Instruction::adc_e(&[])),
-            Opcode::AdcH => Some(Instruction::adc_h(&[])),
-            Opcode::AdcL => Some(Instruction::adc_l(&[])),
-            Opcode::AdcD8 => {
+            Opcode::ADC_A => Some(NormalInstruction::adc_a(&[]).into()),
+            Opcode::ADC_B => Some(NormalInstruction::adc_b(&[]).into()),
+            Opcode::ADC_C => Some(NormalInstruction::adc_c(&[]).into()),
+            Opcode::ADC_D => Some(NormalInstruction::adc_d(&[]).into()),
+            Opcode::ADC_E => Some(NormalInstruction::adc_e(&[]).into()),
+            Opcode::ADC_H => Some(NormalInstruction::adc_h(&[]).into()),
+            Opcode::ADC_L => Some(NormalInstruction::adc_l(&[]).into()),
+            Opcode::ADC_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::adc_d8(data))
+                Some(NormalInstruction::adc_d8(data).into())
             }
-            Opcode::AddA => Some(Instruction::add_a(&[])),
-            Opcode::AddB => Some(Instruction::add_b(&[])),
-            Opcode::AddC => Some(Instruction::add_c(&[])),
-            Opcode::AddD => Some(Instruction::add_d(&[])),
-            Opcode::AddE => Some(Instruction::add_e(&[])),
-            Opcode::AddH => Some(Instruction::add_h(&[])),
-            Opcode::AddL => Some(Instruction::add_l(&[])),
-            Opcode::AddHLBC => Some(Instruction::add_hl_bc(&[])),
-            Opcode::AddHLDE => Some(Instruction::add_hl_de(&[])),
-            Opcode::AddHLHL => Some(Instruction::add_hl_hl(&[])),
-            Opcode::AddHLSP => Some(Instruction::add_hl_sp(&[])),
-            Opcode::AddAIndHL => Some(Instruction::add_a_ind_hl(&[])),
-            Opcode::AddD8 => {
+            Opcode::ADD_A => Some(NormalInstruction::add_a(&[]).into()),
+            Opcode::ADD_B => Some(NormalInstruction::add_b(&[]).into()),
+            Opcode::ADD_C => Some(NormalInstruction::add_c(&[]).into()),
+            Opcode::ADD_D => Some(NormalInstruction::add_d(&[]).into()),
+            Opcode::ADD_E => Some(NormalInstruction::add_e(&[]).into()),
+            Opcode::ADD_H => Some(NormalInstruction::add_h(&[]).into()),
+            Opcode::ADD_L => Some(NormalInstruction::add_l(&[]).into()),
+            Opcode::ADD_HL_BC => Some(NormalInstruction::add_hl_bc(&[]).into()),
+            Opcode::ADD_HL_DE => Some(NormalInstruction::add_hl_de(&[]).into()),
+            Opcode::ADD_HL_HL => Some(NormalInstruction::add_hl_hl(&[]).into()),
+            Opcode::ADD_HL_SP => Some(NormalInstruction::add_hl_sp(&[]).into()),
+            Opcode::ADD_A_IND_HL => Some(NormalInstruction::add_a_ind_hl(&[]).into()),
+            Opcode::ADD_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::add_d8(data))
+                Some(NormalInstruction::add_d8(data).into())
             }
-            Opcode::CpA => Some(Instruction::cp_a(&[])),
-            Opcode::CpB => Some(Instruction::cp_b(&[])),
-            Opcode::CpC => Some(Instruction::cp_c(&[])),
-            Opcode::CpD => Some(Instruction::cp_d(&[])),
-            Opcode::CpE => Some(Instruction::cp_e(&[])),
-            Opcode::CpH => Some(Instruction::cp_h(&[])),
-            Opcode::CpL => Some(Instruction::cp_l(&[])),
-            Opcode::CpD8 => {
+            Opcode::CP_A => Some(NormalInstruction::cp_a(&[]).into()),
+            Opcode::CP_B => Some(NormalInstruction::cp_b(&[]).into()),
+            Opcode::CP_C => Some(NormalInstruction::cp_c(&[]).into()),
+            Opcode::CP_D => Some(NormalInstruction::cp_d(&[]).into()),
+            Opcode::CP_E => Some(NormalInstruction::cp_e(&[]).into()),
+            Opcode::CP_H => Some(NormalInstruction::cp_h(&[]).into()),
+            Opcode::CP_L => Some(NormalInstruction::cp_l(&[]).into()),
+            Opcode::CP_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::cp_d8(data))
+                Some(NormalInstruction::cp_d8(data).into())
             }
-            Opcode::CpAIndHL => Some(Instruction::cp_a_ind_hl(&[])),
-            Opcode::SbcA => Some(Instruction::sbc_a(&[])),
-            Opcode::SbcB => Some(Instruction::sbc_b(&[])),
-            Opcode::SbcC => Some(Instruction::sbc_c(&[])),
-            Opcode::SbcD => Some(Instruction::sbc_d(&[])),
-            Opcode::SbcE => Some(Instruction::sbc_e(&[])),
-            Opcode::SbcH => Some(Instruction::sbc_h(&[])),
-            Opcode::SbcL => Some(Instruction::sbc_l(&[])),
-            Opcode::SbcD8 => {
+            Opcode::CP_A_IND_HL => Some(NormalInstruction::cp_a_ind_hl(&[]).into()),
+            Opcode::SBC_A => Some(NormalInstruction::sbc_a(&[]).into()),
+            Opcode::SBC_B => Some(NormalInstruction::sbc_b(&[]).into()),
+            Opcode::SBC_C => Some(NormalInstruction::sbc_c(&[]).into()),
+            Opcode::SBC_D => Some(NormalInstruction::sbc_d(&[]).into()),
+            Opcode::SBC_E => Some(NormalInstruction::sbc_e(&[]).into()),
+            Opcode::SBC_H => Some(NormalInstruction::sbc_h(&[]).into()),
+            Opcode::SBC_L => Some(NormalInstruction::sbc_l(&[]).into()),
+            Opcode::SBC_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::sbc_d8(data))
+                Some(NormalInstruction::sbc_d8(data).into())
             }
-            Opcode::SubD8 => {
+            Opcode::SUB_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::sub_d8(data))
+                Some(NormalInstruction::sub_d8(data).into())
             }
-            Opcode::SubA => Some(Instruction::sub_a(&[])),
-            Opcode::SubB => Some(Instruction::sub_b(&[])),
-            Opcode::SubC => Some(Instruction::sub_c(&[])),
-            Opcode::SubD => Some(Instruction::sub_d(&[])),
-            Opcode::SubE => Some(Instruction::sub_e(&[])),
-            Opcode::SubH => Some(Instruction::sub_h(&[])),
-            Opcode::SubL => Some(Instruction::sub_l(&[])),
-            Opcode::LdHLD16 => {
+            Opcode::SUB_A => Some(NormalInstruction::sub_a(&[]).into()),
+            Opcode::SUB_B => Some(NormalInstruction::sub_b(&[]).into()),
+            Opcode::SUB_C => Some(NormalInstruction::sub_c(&[]).into()),
+            Opcode::SUB_D => Some(NormalInstruction::sub_d(&[]).into()),
+            Opcode::SUB_E => Some(NormalInstruction::sub_e(&[]).into()),
+            Opcode::SUB_H => Some(NormalInstruction::sub_h(&[]).into()),
+            Opcode::SUB_L => Some(NormalInstruction::sub_l(&[]).into()),
+            Opcode::LD_HL_D16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::ld_hl_d16(&data))
+                Some(NormalInstruction::ld_hl_d16(&data).into())
             }
-            Opcode::LdBCD16 => {
+            Opcode::LD_BC_D16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::ld_bc_d16(&data))
+                Some(NormalInstruction::ld_bc_d16(&data).into())
             }
-            Opcode::LdDED16 => {
+            Opcode::LD_DE_D16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::ld_de_d16(&data))
+                Some(NormalInstruction::ld_de_d16(&data).into())
             }
-            Opcode::LdIndDEA => Some(Instruction::ld_ind_de_a(&[])),
-            Opcode::LdIndHLA => Some(Instruction::ld_ind_hl_a(&[])),
-            Opcode::LdIndHLB => Some(Instruction::ld_ind_hl_b(&[])),
-            Opcode::LdIndHLC => Some(Instruction::ld_ind_hl_c(&[])),
-            Opcode::LdIndHLD => Some(Instruction::ld_ind_hl_d(&[])),
-            Opcode::LdIndHLE => Some(Instruction::ld_ind_hl_e(&[])),
-            Opcode::LdIndHLH => Some(Instruction::ld_ind_hl_h(&[])),
-            Opcode::LdIndHLL => Some(Instruction::ld_ind_hl_l(&[])),
-            Opcode::LdIndHLD8 => {
+            Opcode::LD_IND_DE_A => Some(NormalInstruction::ld_ind_de_a(&[]).into()),
+            Opcode::LD_IND_HL_A => Some(NormalInstruction::ld_ind_hl_a(&[]).into()),
+            Opcode::LD_IND_HL_B => Some(NormalInstruction::ld_ind_hl_b(&[]).into()),
+            Opcode::LD_IND_HL_C => Some(NormalInstruction::ld_ind_hl_c(&[]).into()),
+            Opcode::LD_IND_HL_D => Some(NormalInstruction::ld_ind_hl_d(&[]).into()),
+            Opcode::LD_IND_HL_E => Some(NormalInstruction::ld_ind_hl_e(&[]).into()),
+            Opcode::LD_IND_HL_H => Some(NormalInstruction::ld_ind_hl_h(&[]).into()),
+            Opcode::LD_IND_HL_L => Some(NormalInstruction::ld_ind_hl_l(&[]).into()),
+            Opcode::LD_IND_HL_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::ld_ind_hl_d8(data))
+                Some(NormalInstruction::ld_ind_hl_d8(data).into())
             }
-            Opcode::LdIndHLDecA => Some(Instruction::ld_ind_hl_dec_a(&[])),
-            Opcode::LdIndHLIncA => Some(Instruction::ld_ind_hl_inc_a(&[])),
-            Opcode::LdIndCA => Some(Instruction::ld_ind_c_a(&[])),
-            Opcode::LdAIndC => Some(Instruction::ld_a_ind_c(&[])),
-            Opcode::LdAIndDE => Some(Instruction::ldh_a_ind_de(&[])),
-            Opcode::LdAIndHL => Some(Instruction::ldh_a_ind_hl(&[])),
-            Opcode::LdBIndHL => Some(Instruction::ldh_b_ind_hl(&[])),
-            Opcode::LdCIndHL => Some(Instruction::ldh_c_ind_hl(&[])),
-            Opcode::LdDIndHL => Some(Instruction::ldh_d_ind_hl(&[])),
-            Opcode::LdEIndHL => Some(Instruction::ldh_e_ind_hl(&[])),
-            Opcode::LdHIndHL => Some(Instruction::ldh_h_ind_hl(&[])),
-            Opcode::LdLIndHL => Some(Instruction::ldh_l_ind_hl(&[])),
-            Opcode::LdAIndHLInc => Some(Instruction::ld_a_ind_hl_inc(&[])),
-            Opcode::JrR8 => {
+            Opcode::LD_IND_HL_DEC_A => Some(NormalInstruction::ld_ind_hl_dec_a(&[]).into()),
+            Opcode::LD_IND_HL_INC_A => Some(NormalInstruction::ld_ind_hl_inc_a(&[]).into()),
+            Opcode::LD_IND_C_A => Some(NormalInstruction::ld_ind_c_a(&[]).into()),
+            Opcode::LD_A_IND_C => Some(NormalInstruction::ld_a_ind_c(&[]).into()),
+            Opcode::LD_A_IND_DE => Some(NormalInstruction::ld_a_ind_de(&[]).into()),
+            Opcode::LD_A_IND_HL => Some(NormalInstruction::ld_a_ind_hl(&[]).into()),
+            Opcode::LD_B_IND_HL => Some(NormalInstruction::ld_b_ind_hl(&[]).into()),
+            Opcode::LD_C_IND_HL => Some(NormalInstruction::ld_c_ind_hl(&[]).into()),
+            Opcode::LD_D_IND_HL => Some(NormalInstruction::ld_d_ind_hl(&[]).into()),
+            Opcode::LD_E_IND_HL => Some(NormalInstruction::ld_e_ind_hl(&[]).into()),
+            Opcode::LD_H_IND_HL => Some(NormalInstruction::ld_h_ind_hl(&[]).into()),
+            Opcode::LD_L_IND_HL => Some(NormalInstruction::ld_l_ind_hl(&[]).into()),
+            Opcode::LD_A_IND_HL_INC => Some(NormalInstruction::ld_a_ind_hl_inc(&[]).into()),
+            Opcode::JR_R8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::jr_r8(data))
+                Some(NormalInstruction::jr_r8(data).into())
             }
-            Opcode::JrCR8 => {
+            Opcode::JR_C_R8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::jr_c_r8(data))
+                Some(NormalInstruction::jr_c_r8(data).into())
             }
-            Opcode::JrNcR8 => {
+            Opcode::JR_NC_R8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::jr_nc_r8(data))
+                Some(NormalInstruction::jr_nc_r8(data).into())
             }
-            Opcode::JrNzR8 => {
+            Opcode::JR_NZ_R8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::jr_nz_r8(data))
+                Some(NormalInstruction::jr_nz_r8(data).into())
             }
-            Opcode::JrZR8 => {
+            Opcode::JR_Z_R8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
-                Some(Instruction::jr_z_r8(data))
+                Some(NormalInstruction::jr_z_r8(data).into())
             }
-            Opcode::JpA16 => {
+            Opcode::JP_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::jp_a16(&data))
+                Some(NormalInstruction::jp_a16(&data).into())
             }
-            Opcode::JpNcA16 => {
+            Opcode::JP_NC_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::jp_nc_a16(&data))
+                Some(NormalInstruction::jp_nc_a16(&data).into())
             }
-            Opcode::JpNzA16 => {
+            Opcode::JP_NZ_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::jp_nz_a16(&data))
+                Some(NormalInstruction::jp_nz_a16(&data).into())
             }
-            Opcode::JpCA16 => {
+            Opcode::JP_C_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::jp_c_a16(&data))
+                Some(NormalInstruction::jp_c_a16(&data).into())
             }
-            Opcode::JpZA16 => {
+            Opcode::JP_Z_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::jp_z_a16(&data))
+                Some(NormalInstruction::jp_z_a16(&data).into())
             }
-            Opcode::JpHL => Some(Instruction::jp_hl(&[])),
-            Opcode::CallA16 => {
+            Opcode::JP_HL => Some(NormalInstruction::jp_hl(&[]).into()),
+            Opcode::CALL_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::call_a16(&data))
+                Some(NormalInstruction::call_a16(&data).into())
             }
-            Opcode::CallCA16 => {
+            Opcode::CALL_C_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::call_c_a16(&data))
+                Some(NormalInstruction::call_c_a16(&data).into())
             }
-            Opcode::CallZA16 => {
+            Opcode::CALL_Z_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::call_z_a16(&data))
+                Some(NormalInstruction::call_z_a16(&data).into())
             }
-            Opcode::CallNcA16 => {
+            Opcode::CALL_NC_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::call_nc_a16(&data))
+                Some(NormalInstruction::call_nc_a16(&data).into())
             }
-            Opcode::CallNzA16 => {
+            Opcode::CALL_NZ_A16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::call_nz_a16(&data))
+                Some(NormalInstruction::call_nz_a16(&data).into())
             }
-            Opcode::Ret => Some(Instruction::ret(&[])),
-            Opcode::Reti => Some(Instruction::reti(&[])),
-            Opcode::RetC => Some(Instruction::ret_c(&[])),
-            Opcode::RetNc => Some(Instruction::ret_nc(&[])),
-            Opcode::RetZ => Some(Instruction::ret_z(&[])),
-            Opcode::RetNz => Some(Instruction::ret_nz(&[])),
-            Opcode::Rst00 => Some(Instruction::rst00(&[])),
-            Opcode::RlA => Some(Instruction::rl_a(&[])),
-            Opcode::RrA => Some(Instruction::rr_a(&[])),
-            Opcode::Cpl => Some(Instruction::cpl(&[])),
-            Opcode::Ccf => Some(Instruction::ccf(&[])),
-            Opcode::Scf => Some(Instruction::scf(&[])),
-            Opcode::LdA16A => {
+            Opcode::RET => Some(NormalInstruction::ret(&[]).into()),
+            Opcode::RETI => Some(NormalInstruction::reti(&[]).into()),
+            Opcode::RET_C => Some(NormalInstruction::ret_c(&[]).into()),
+            Opcode::RET_NC => Some(NormalInstruction::ret_nc(&[]).into()),
+            Opcode::RET_Z => Some(NormalInstruction::ret_z(&[]).into()),
+            Opcode::RET_NZ => Some(NormalInstruction::ret_nz(&[]).into()),
+            Opcode::RST00 => Some(NormalInstruction::rst00(&[]).into()),
+            Opcode::RL_A => Some(NormalInstruction::rl_a(&[]).into()),
+            Opcode::RR_A => Some(NormalInstruction::rr_a(&[]).into()),
+            Opcode::CPL => Some(NormalInstruction::cpl(&[]).into()),
+            Opcode::CCF => Some(NormalInstruction::ccf(&[]).into()),
+            Opcode::SCF => Some(NormalInstruction::scf(&[]).into()),
+            Opcode::LD_A16_A => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::ld_a16_a(&data))
+                Some(NormalInstruction::ld_a16_a(&data).into())
             }
-            Opcode::LdA16SP => {
+            Opcode::LD_A16_SP => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
 
-                Some(Instruction::ld_a16_sp(&data))
+                Some(NormalInstruction::ld_a16_sp(&data).into())
             }
-            Opcode::Rlca => Some(Instruction::rlca(&[])),
-            Opcode::Rrca => Some(Instruction::rrca(&[])),
-            Opcode::Prefix => {
+            Opcode::RLCA => Some(NormalInstruction::rlca(&[]).into()),
+            Opcode::RRCA => Some(NormalInstruction::rrca(&[]).into()),
+            Opcode::PREFIX => {
                 let prefixed_opcode = match PrefixedOpcode::try_from(mmu.read_byte(pc as usize)) {
                     Ok(prefixed_opcode) => prefixed_opcode,
                     Err(InstructionError::UnrecognizedPrefixedOpcode(prefixed_opcode)) => {
@@ -879,32 +931,32 @@ impl Cpu {
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
                 match prefixed_opcode {
-                    PrefixedOpcode::Bit7H => Some(Instruction::bit7h(&[])),
-                    PrefixedOpcode::RlC => Some(Instruction::rl_c(&[])),
-                    PrefixedOpcode::RlcA => Some(Instruction::rlc_a(&[])),
-                    PrefixedOpcode::RlcB => Some(Instruction::rlc_b(&[])),
-                    PrefixedOpcode::RlcC => Some(Instruction::rlc_c(&[])),
-                    PrefixedOpcode::RlcD => Some(Instruction::rlc_d(&[])),
-                    PrefixedOpcode::RlcE => Some(Instruction::rlc_e(&[])),
-                    PrefixedOpcode::RlcH => Some(Instruction::rlc_h(&[])),
-                    PrefixedOpcode::RlcL => Some(Instruction::rlc_l(&[])),
-                    PrefixedOpcode::Bit0D => Some(Instruction::bit0d(&[])),
-                    PrefixedOpcode::RrC => Some(Instruction::rr_c(&[])),
-                    PrefixedOpcode::RrD => Some(Instruction::rr_d(&[])),
-                    PrefixedOpcode::RrE => Some(Instruction::rr_e(&[])),
-                    PrefixedOpcode::RrcA => Some(Instruction::rrc_a(&[])),
-                    PrefixedOpcode::RrcB => Some(Instruction::rrc_b(&[])),
-                    PrefixedOpcode::RrcC => Some(Instruction::rrc_c(&[])),
-                    PrefixedOpcode::RrcD => Some(Instruction::rrc_d(&[])),
-                    PrefixedOpcode::RrcE => Some(Instruction::rrc_e(&[])),
-                    PrefixedOpcode::RrcH => Some(Instruction::rrc_h(&[])),
-                    PrefixedOpcode::RrcL => Some(Instruction::rrc_l(&[])),
-                    PrefixedOpcode::SrlB => Some(Instruction::srl_b(&[])),
-                    PrefixedOpcode::SwapA => Some(Instruction::swap_a(&[])),
+                    PrefixedOpcode::BIT7H => Some(PrefixedInstruction::bit7h(&[]).into()),
+                    PrefixedOpcode::RL_C => Some(PrefixedInstruction::rl_c(&[]).into()),
+                    PrefixedOpcode::RLC_A => Some(PrefixedInstruction::rlc_a(&[]).into()),
+                    PrefixedOpcode::RLC_B => Some(PrefixedInstruction::rlc_b(&[]).into()),
+                    PrefixedOpcode::RLC_C => Some(PrefixedInstruction::rlc_c(&[]).into()),
+                    PrefixedOpcode::RLC_D => Some(PrefixedInstruction::rlc_d(&[]).into()),
+                    PrefixedOpcode::RLC_E => Some(PrefixedInstruction::rlc_e(&[]).into()),
+                    PrefixedOpcode::RLC_H => Some(PrefixedInstruction::rlc_h(&[]).into()),
+                    PrefixedOpcode::RLC_L => Some(PrefixedInstruction::rlc_l(&[]).into()),
+                    PrefixedOpcode::BIT0D => Some(PrefixedInstruction::bit0d(&[]).into()),
+                    PrefixedOpcode::RR_C => Some(PrefixedInstruction::rr_c(&[]).into()),
+                    PrefixedOpcode::RR_D => Some(PrefixedInstruction::rr_d(&[]).into()),
+                    PrefixedOpcode::RR_E => Some(PrefixedInstruction::rr_e(&[]).into()),
+                    PrefixedOpcode::RRC_A => Some(PrefixedInstruction::rrc_a(&[]).into()),
+                    PrefixedOpcode::RRC_B => Some(PrefixedInstruction::rrc_b(&[]).into()),
+                    PrefixedOpcode::RRC_C => Some(PrefixedInstruction::rrc_c(&[]).into()),
+                    PrefixedOpcode::RRC_D => Some(PrefixedInstruction::rrc_d(&[]).into()),
+                    PrefixedOpcode::RRC_E => Some(PrefixedInstruction::rrc_e(&[]).into()),
+                    PrefixedOpcode::RRC_H => Some(PrefixedInstruction::rrc_h(&[]).into()),
+                    PrefixedOpcode::RRC_L => Some(PrefixedInstruction::rrc_l(&[]).into()),
+                    PrefixedOpcode::SRL_B => Some(PrefixedInstruction::srl_b(&[]).into()),
+                    PrefixedOpcode::SWAP_A => Some(PrefixedInstruction::swap_a(&[]).into()),
                 }
             }
-            Opcode::Di => Some(Instruction::di(&[])),
-            Opcode::Ei => Some(Instruction::ei(&[])),
+            Opcode::DI => Some(NormalInstruction::di(&[]).into()),
+            Opcode::EI => Some(NormalInstruction::ei(&[]).into()),
         }
     }
 
