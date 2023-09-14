@@ -71,7 +71,11 @@ pub enum InstructionType {
     RrR,
     Rrca,
     RrcR,
+    Rla,
+    Rra,
     Rst,
+    SlaR,
+    SraR,
     SrlR,
     SwapR,
 }
@@ -159,8 +163,8 @@ pub enum Opcode {
     #[instruction(regs = ["D"], instruction_type = "LdRD8", len = 1, cycles = [8])]
     LD_D_D8 = 0x16,
 
-    #[instruction(regs = ["A"], instruction_type = "RlR", len = 0, cycles = [4])]
-    RL_A = 0x17,
+    #[instruction(regs = ["A"], instruction_type = "Rla", len = 0, cycles = [4])]
+    RLA = 0x17,
 
     #[instruction(regs = [], instruction_type = "Jr", len = 1, cycles = [12])]
     JR_R8 = 0x18,
@@ -183,8 +187,8 @@ pub enum Opcode {
     #[instruction(regs = ["E"], instruction_type = "LdRD8", len = 1, cycles = [8])]
     LD_E_D8 = 0x1e,
 
-    #[instruction(regs = ["A"], instruction_type = "RrR", len = 0, cycles = [4])]
-    RR_A = 0x1f,
+    #[instruction(regs = ["A"], instruction_type = "Rra", len = 0, cycles = [4])]
+    RRA = 0x1f,
 
     #[instruction(instruction_type = "Jr", len = 1, cycles = [12, 8])]
     JR_NZ_R8 = 0x20,
@@ -831,8 +835,29 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["A"], instruction_type = "RrcR", len = 0, cycles = [12])]
     RRC_A = 0x0f,
 
+    #[instruction(regs = ["B"], instruction_type = "RlR", len = 0, cycles = [12])]
+    RL_B = 0x10,
+
     #[instruction(regs = ["C"], instruction_type = "RlR", len = 0, cycles = [12])]
     RL_C = 0x11,
+
+    #[instruction(regs = ["D"], instruction_type = "RlR", len = 0, cycles = [12])]
+    RL_D = 0x12,
+
+    #[instruction(regs = ["E"], instruction_type = "RlR", len = 0, cycles = [12])]
+    RL_E = 0x13,
+
+    #[instruction(regs = ["H"], instruction_type = "RlR", len = 0, cycles = [12])]
+    RL_H = 0x14,
+
+    #[instruction(regs = ["L"], instruction_type = "RlR", len = 0, cycles = [12])]
+    RL_L = 0x15,
+
+    #[instruction(regs = ["A"], instruction_type = "RlR", len = 0, cycles = [12])]
+    RL_A = 0x17,
+
+    #[instruction(regs = ["B"], instruction_type = "RrR", len = 0, cycles = [12])]
+    RR_B = 0x18,
 
     #[instruction(regs = ["C"], instruction_type = "RrR", len = 0, cycles = [12])]
     RR_C = 0x19,
@@ -843,11 +868,98 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["E"], instruction_type = "RrR", len = 0, cycles = [12])]
     RR_E = 0x1b,
 
+    #[instruction(regs = ["H"], instruction_type = "RrR", len = 0, cycles = [12])]
+    RR_H = 0x1c,
+
+    #[instruction(regs = ["L"], instruction_type = "RrR", len = 0, cycles = [12])]
+    RR_L = 0x1d,
+
+    #[instruction(regs = ["A"], instruction_type = "RrR", len = 0, cycles = [12])]
+    RR_A = 0x1f,
+
+    #[instruction(regs = ["B"], instruction_type = "SlaR", len = 0, cycles = [12])]
+    SLA_B = 0x20,
+
+    #[instruction(regs = ["C"], instruction_type = "SlaR", len = 0, cycles = [12])]
+    SLA_C = 0x21,
+
+    #[instruction(regs = ["D"], instruction_type = "SlaR", len = 0, cycles = [12])]
+    SLA_D = 0x22,
+
+    #[instruction(regs = ["E"], instruction_type = "SlaR", len = 0, cycles = [12])]
+    SLA_E = 0x23,
+
+    #[instruction(regs = ["H"], instruction_type = "SlaR", len = 0, cycles = [12])]
+    SLA_H = 0x24,
+
+    #[instruction(regs = ["L"], instruction_type = "SlaR", len = 0, cycles = [12])]
+    SLA_L = 0x25,
+
+    #[instruction(regs = ["A"], instruction_type = "SlaR", len = 0, cycles = [12])]
+    SLA_A = 0x27,
+
+    #[instruction(regs = ["B"], instruction_type = "SraR", len = 0, cycles = [12])]
+    SRA_B = 0x28,
+
+    #[instruction(regs = ["C"], instruction_type = "SraR", len = 0, cycles = [12])]
+    SRA_C = 0x29,
+
+    #[instruction(regs = ["D"], instruction_type = "SraR", len = 0, cycles = [12])]
+    SRA_D = 0x2a,
+
+    #[instruction(regs = ["E"], instruction_type = "SraR", len = 0, cycles = [12])]
+    SRA_E = 0x2b,
+
+    #[instruction(regs = ["H"], instruction_type = "SraR", len = 0, cycles = [12])]
+    SRA_H = 0x2c,
+
+    #[instruction(regs = ["L"], instruction_type = "SraR", len = 0, cycles = [12])]
+    SRA_L = 0x2d,
+
+    #[instruction(regs = ["A"], instruction_type = "SraR", len = 0, cycles = [12])]
+    SRA_A = 0x2f,
+
+    #[instruction(regs = ["B"], instruction_type = "SwapR", len = 0, cycles = [12])]
+    SWAP_B = 0x30,
+
+    #[instruction(regs = ["C"], instruction_type = "SwapR", len = 0, cycles = [12])]
+    SWAP_C = 0x31,
+
+    #[instruction(regs = ["D"], instruction_type = "SwapR", len = 0, cycles = [12])]
+    SWAP_D = 0x32,
+
+    #[instruction(regs = ["E"], instruction_type = "SwapR", len = 0, cycles = [12])]
+    SWAP_E = 0x33,
+
+    #[instruction(regs = ["H"], instruction_type = "SwapR", len = 0, cycles = [12])]
+    SWAP_H = 0x34,
+
+    #[instruction(regs = ["L"], instruction_type = "SwapR", len = 0, cycles = [12])]
+    SWAP_L = 0x35,
+
     #[instruction(regs = ["A"], instruction_type = "SwapR", len = 0, cycles = [12])]
     SWAP_A = 0x37,
 
     #[instruction(regs = ["B"], instruction_type = "SrlR", len = 0, cycles = [12])]
     SRL_B = 0x38,
+
+    #[instruction(regs = ["C"], instruction_type = "SrlR", len = 0, cycles = [12])]
+    SRL_C = 0x39,
+
+    #[instruction(regs = ["D"], instruction_type = "SrlR", len = 0, cycles = [12])]
+    SRL_D = 0x3a,
+
+    #[instruction(regs = ["E"], instruction_type = "SrlR", len = 0, cycles = [12])]
+    SRL_E = 0x3b,
+
+    #[instruction(regs = ["H"], instruction_type = "SrlR", len = 0, cycles = [12])]
+    SRL_H = 0x3c,
+
+    #[instruction(regs = ["L"], instruction_type = "SrlR", len = 0, cycles = [12])]
+    SRL_L = 0x3d,
+
+    #[instruction(regs = ["A"], instruction_type = "SrlR", len = 0, cycles = [12])]
+    SRL_A = 0x3f,
 
     #[instruction(regs = ["D"], instruction_type = "Bit0R", len = 0, cycles = [12])]
     BIT0D = 0x42,
