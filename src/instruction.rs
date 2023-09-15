@@ -1030,6 +1030,108 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["A"], instruction_type = "Bit2R", len = 0, cycles = [12])]
     BIT2A = 0x57,
 
+    #[instruction(regs = ["B"], instruction_type = "Bit3R", len = 0, cycles = [12])]
+    BIT3B = 0x58,
+
+    #[instruction(regs = ["C"], instruction_type = "Bit3R", len = 0, cycles = [12])]
+    BIT3C = 0x59,
+
+    #[instruction(regs = ["D"], instruction_type = "Bit3R", len = 0, cycles = [12])]
+    BIT3D = 0x5a,
+
+    #[instruction(regs = ["E"], instruction_type = "Bit3R", len = 0, cycles = [12])]
+    BIT3E = 0x5b,
+
+    #[instruction(regs = ["H"], instruction_type = "Bit3R", len = 0, cycles = [12])]
+    BIT3H = 0x5c,
+
+    #[instruction(regs = ["L"], instruction_type = "Bit3R", len = 0, cycles = [12])]
+    BIT3L = 0x5d,
+
+    #[instruction(regs = ["A"], instruction_type = "Bit3R", len = 0, cycles = [12])]
+    BIT3A = 0x5e,
+
+    #[instruction(regs = ["B"], instruction_type = "Bit4R", len = 0, cycles = [12])]
+    BIT4B = 0x60,
+
+    #[instruction(regs = ["C"], instruction_type = "Bit4R", len = 0, cycles = [12])]
+    BIT4C = 0x61,
+
+    #[instruction(regs = ["D"], instruction_type = "Bit4R", len = 0, cycles = [12])]
+    BIT4D = 0x62,
+
+    #[instruction(regs = ["E"], instruction_type = "Bit4R", len = 0, cycles = [12])]
+    BIT4E = 0x63,
+
+    #[instruction(regs = ["H"], instruction_type = "Bit4R", len = 0, cycles = [12])]
+    BIT4H = 0x64,
+
+    #[instruction(regs = ["L"], instruction_type = "Bit4R", len = 0, cycles = [12])]
+    BIT4L = 0x65,
+
+    #[instruction(regs = ["A"], instruction_type = "Bit4R", len = 0, cycles = [12])]
+    BIT4A = 0x67,
+
+    #[instruction(regs = ["B"], instruction_type = "Bit5R", len = 0, cycles = [12])]
+    BIT5B = 0x68,
+
+    #[instruction(regs = ["C"], instruction_type = "Bit5R", len = 0, cycles = [12])]
+    BIT5C = 0x69,
+
+    #[instruction(regs = ["D"], instruction_type = "Bit5R", len = 0, cycles = [12])]
+    BIT5D = 0x6a,
+
+    #[instruction(regs = ["E"], instruction_type = "Bit5R", len = 0, cycles = [12])]
+    BIT5E = 0x6b,
+
+    #[instruction(regs = ["H"], instruction_type = "Bit5R", len = 0, cycles = [12])]
+    BIT5H = 0x6c,
+
+    #[instruction(regs = ["L"], instruction_type = "Bit5R", len = 0, cycles = [12])]
+    BIT5L = 0x6d,
+
+    #[instruction(regs = ["A"], instruction_type = "Bit5R", len = 0, cycles = [12])]
+    BIT5A = 0x6f,
+
+    #[instruction(regs = ["B"], instruction_type = "Bit6R", len = 0, cycles = [12])]
+    BIT6B = 0x70,
+
+    #[instruction(regs = ["C"], instruction_type = "Bit6R", len = 0, cycles = [12])]
+    BIT6C = 0x71,
+
+    #[instruction(regs = ["D"], instruction_type = "Bit6R", len = 0, cycles = [12])]
+    BIT6D = 0x72,
+
+    #[instruction(regs = ["E"], instruction_type = "Bit6R", len = 0, cycles = [12])]
+    BIT6E = 0x73,
+
+    #[instruction(regs = ["H"], instruction_type = "Bit6R", len = 0, cycles = [12])]
+    BIT6H = 0x74,
+
+    #[instruction(regs = ["L"], instruction_type = "Bit6R", len = 0, cycles = [12])]
+    BIT6L = 0x75,
+
+    #[instruction(regs = ["A"], instruction_type = "Bit6R", len = 0, cycles = [12])]
+    BIT6A = 0x77,
+
+    #[instruction(regs = ["B"], instruction_type = "Bit7R", len = 0, cycles = [12])]
+    BIT7B = 0x78,
+
+    #[instruction(regs = ["C"], instruction_type = "Bit7R", len = 0, cycles = [12])]
+    BIT7C = 0x79,
+
+    #[instruction(regs = ["D"], instruction_type = "Bit7R", len = 0, cycles = [12])]
+    BIT7D = 0x7a,
+
+    #[instruction(regs = ["E"], instruction_type = "Bit7R", len = 0, cycles = [12])]
+    BIT7E = 0x7b,
+
     #[instruction(regs = ["H"], instruction_type = "Bit7R", len = 0, cycles = [12])]
     BIT7H = 0x7c,
+
+    #[instruction(regs = ["L"], instruction_type = "Bit7R", len = 0, cycles = [12])]
+    BIT7L = 0x7d,
+
+    #[instruction(regs = ["A"], instruction_type = "Bit7R", len = 0, cycles = [12])]
+    BIT7A = 0x7f,
 }

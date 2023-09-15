@@ -939,7 +939,6 @@ impl Cpu {
                 self.regs.write_reg16(Reg16::PC, pc + 1);
 
                 match prefixed_opcode {
-                    PrefixedOpcode::BIT7H => Some(PrefixedInstruction::bit7h(&[]).into()),
                     PrefixedOpcode::RL_B => Some(PrefixedInstruction::rl_b(&[]).into()),
                     PrefixedOpcode::RL_C => Some(PrefixedInstruction::rl_c(&[]).into()),
                     PrefixedOpcode::RL_D => Some(PrefixedInstruction::rl_d(&[]).into()),
@@ -975,6 +974,41 @@ impl Cpu {
                     PrefixedOpcode::BIT2H => Some(PrefixedInstruction::bit2h(&[]).into()),
                     PrefixedOpcode::BIT2L => Some(PrefixedInstruction::bit2l(&[]).into()),
                     PrefixedOpcode::BIT2A => Some(PrefixedInstruction::bit2a(&[]).into()),
+                    PrefixedOpcode::BIT3B => Some(PrefixedInstruction::bit3b(&[]).into()),
+                    PrefixedOpcode::BIT3C => Some(PrefixedInstruction::bit3c(&[]).into()),
+                    PrefixedOpcode::BIT3D => Some(PrefixedInstruction::bit3d(&[]).into()),
+                    PrefixedOpcode::BIT3E => Some(PrefixedInstruction::bit3e(&[]).into()),
+                    PrefixedOpcode::BIT3H => Some(PrefixedInstruction::bit3h(&[]).into()),
+                    PrefixedOpcode::BIT3L => Some(PrefixedInstruction::bit3l(&[]).into()),
+                    PrefixedOpcode::BIT3A => Some(PrefixedInstruction::bit3a(&[]).into()),
+                    PrefixedOpcode::BIT4B => Some(PrefixedInstruction::bit4b(&[]).into()),
+                    PrefixedOpcode::BIT4C => Some(PrefixedInstruction::bit4c(&[]).into()),
+                    PrefixedOpcode::BIT4D => Some(PrefixedInstruction::bit4d(&[]).into()),
+                    PrefixedOpcode::BIT4E => Some(PrefixedInstruction::bit4e(&[]).into()),
+                    PrefixedOpcode::BIT4H => Some(PrefixedInstruction::bit4h(&[]).into()),
+                    PrefixedOpcode::BIT4L => Some(PrefixedInstruction::bit4l(&[]).into()),
+                    PrefixedOpcode::BIT4A => Some(PrefixedInstruction::bit4a(&[]).into()),
+                    PrefixedOpcode::BIT5B => Some(PrefixedInstruction::bit5b(&[]).into()),
+                    PrefixedOpcode::BIT5C => Some(PrefixedInstruction::bit5c(&[]).into()),
+                    PrefixedOpcode::BIT5D => Some(PrefixedInstruction::bit5d(&[]).into()),
+                    PrefixedOpcode::BIT5E => Some(PrefixedInstruction::bit5e(&[]).into()),
+                    PrefixedOpcode::BIT5H => Some(PrefixedInstruction::bit5h(&[]).into()),
+                    PrefixedOpcode::BIT5L => Some(PrefixedInstruction::bit5l(&[]).into()),
+                    PrefixedOpcode::BIT5A => Some(PrefixedInstruction::bit5a(&[]).into()),
+                    PrefixedOpcode::BIT6B => Some(PrefixedInstruction::bit6b(&[]).into()),
+                    PrefixedOpcode::BIT6C => Some(PrefixedInstruction::bit6c(&[]).into()),
+                    PrefixedOpcode::BIT6D => Some(PrefixedInstruction::bit6d(&[]).into()),
+                    PrefixedOpcode::BIT6E => Some(PrefixedInstruction::bit6e(&[]).into()),
+                    PrefixedOpcode::BIT6H => Some(PrefixedInstruction::bit6h(&[]).into()),
+                    PrefixedOpcode::BIT6L => Some(PrefixedInstruction::bit6l(&[]).into()),
+                    PrefixedOpcode::BIT6A => Some(PrefixedInstruction::bit6a(&[]).into()),
+                    PrefixedOpcode::BIT7B => Some(PrefixedInstruction::bit7b(&[]).into()),
+                    PrefixedOpcode::BIT7C => Some(PrefixedInstruction::bit7c(&[]).into()),
+                    PrefixedOpcode::BIT7D => Some(PrefixedInstruction::bit7d(&[]).into()),
+                    PrefixedOpcode::BIT7E => Some(PrefixedInstruction::bit7e(&[]).into()),
+                    PrefixedOpcode::BIT7H => Some(PrefixedInstruction::bit7h(&[]).into()),
+                    PrefixedOpcode::BIT7L => Some(PrefixedInstruction::bit7l(&[]).into()),
+                    PrefixedOpcode::BIT7A => Some(PrefixedInstruction::bit7a(&[]).into()),
                     PrefixedOpcode::RR_B => Some(PrefixedInstruction::rr_b(&[]).into()),
                     PrefixedOpcode::RR_C => Some(PrefixedInstruction::rr_c(&[]).into()),
                     PrefixedOpcode::RR_D => Some(PrefixedInstruction::rr_d(&[]).into()),
@@ -3488,7 +3522,45 @@ mod tests {
     test_bit!(Reg::L, &[0xcb, 0x55], 2, test_bit2l);
     test_bit!(Reg::A, &[0xcb, 0x57], 2, test_bit2a);
 
+    test_bit!(Reg::B, &[0xcb, 0x58], 3, test_bit3b);
+    test_bit!(Reg::C, &[0xcb, 0x59], 3, test_bit3c);
+    test_bit!(Reg::D, &[0xcb, 0x5a], 3, test_bit3d);
+    test_bit!(Reg::E, &[0xcb, 0x5b], 3, test_bit3e);
+    test_bit!(Reg::H, &[0xcb, 0x5c], 3, test_bit3h);
+    test_bit!(Reg::L, &[0xcb, 0x5d], 3, test_bit3l);
+    test_bit!(Reg::A, &[0xcb, 0x5e], 3, test_bit3a);
+
+    test_bit!(Reg::B, &[0xcb, 0x60], 4, test_bit4b);
+    test_bit!(Reg::C, &[0xcb, 0x61], 4, test_bit4c);
+    test_bit!(Reg::D, &[0xcb, 0x62], 4, test_bit4d);
+    test_bit!(Reg::E, &[0xcb, 0x63], 4, test_bit4e);
+    test_bit!(Reg::H, &[0xcb, 0x64], 4, test_bit4h);
+    test_bit!(Reg::L, &[0xcb, 0x65], 4, test_bit4l);
+    test_bit!(Reg::A, &[0xcb, 0x67], 4, test_bit4a);
+
+    test_bit!(Reg::B, &[0xcb, 0x68], 5, test_bit5b);
+    test_bit!(Reg::C, &[0xcb, 0x69], 5, test_bit5c);
+    test_bit!(Reg::D, &[0xcb, 0x6a], 5, test_bit5d);
+    test_bit!(Reg::E, &[0xcb, 0x6b], 5, test_bit5e);
+    test_bit!(Reg::H, &[0xcb, 0x6c], 5, test_bit5h);
+    test_bit!(Reg::L, &[0xcb, 0x6d], 5, test_bit5l);
+    test_bit!(Reg::A, &[0xcb, 0x6f], 5, test_bit5a);
+
+    test_bit!(Reg::B, &[0xcb, 0x70], 6, test_bit6b);
+    test_bit!(Reg::C, &[0xcb, 0x71], 6, test_bit6c);
+    test_bit!(Reg::D, &[0xcb, 0x72], 6, test_bit6d);
+    test_bit!(Reg::E, &[0xcb, 0x73], 6, test_bit6e);
+    test_bit!(Reg::H, &[0xcb, 0x74], 6, test_bit6h);
+    test_bit!(Reg::L, &[0xcb, 0x75], 6, test_bit6l);
+    test_bit!(Reg::A, &[0xcb, 0x77], 6, test_bit6a);
+
+    test_bit!(Reg::B, &[0xcb, 0x78], 7, test_bit7b);
+    test_bit!(Reg::C, &[0xcb, 0x79], 7, test_bit7c);
+    test_bit!(Reg::D, &[0xcb, 0x7a], 7, test_bit7d);
+    test_bit!(Reg::E, &[0xcb, 0x7b], 7, test_bit7e);
     test_bit!(Reg::H, &[0xcb, 0x7c], 7, test_bit7h);
+    test_bit!(Reg::L, &[0xcb, 0x7d], 7, test_bit7l);
+    test_bit!(Reg::A, &[0xcb, 0x7f], 7, test_bit7a);
 
     test_rlc_r!(Reg::A, &[0xcb, 0x07], test_rlc_a);
     test_rlc_r!(Reg::B, &[0xcb, 0x00], test_rlc_b);
