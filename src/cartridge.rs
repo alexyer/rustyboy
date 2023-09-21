@@ -11,6 +11,7 @@ impl From<u8> for CartridgeType {
         match value {
             0x00 => CartridgeType::RomOnly,
             0x01 => CartridgeType::Mbc1,
+            0x03 => CartridgeType::Mbc1,
             _ => panic!("unrecognized cartridge type: 0x{value:x}"),
         }
     }
@@ -108,9 +109,42 @@ impl Cartridge for Mbc1 {
     }
 }
 
+pub struct RomOnly {
+    buffer: Vec<u8>,
+}
+
+impl RomOnly {
+    pub fn new(rom: &[u8]) -> Self {
+        Self {
+            buffer: rom.to_vec(),
+        }
+    }
+}
+
+impl Cartridge for RomOnly {
+    fn read(&self, addr: usize) -> u8 {
+        self.buffer[addr]
+    }
+
+    fn write(&mut self, addr: usize, value: u8) {
+        self.buffer[addr] = value;
+    }
+
+    fn name(&self) -> String {
+        let name_bytes = &self.buffer[0x134..0x134 + 15];
+        let name = name_bytes.split(|c| *c == 0).next().unwrap();
+
+        CString::new(name).unwrap().into_string().unwrap()
+    }
+
+    fn cartridge_type(&self) -> CartridgeType {
+        CartridgeType::from(self.buffer[0x147])
+    }
+}
+
 pub fn load_cartridge(rom: &[u8]) -> Box<dyn Cartridge> {
     match CartridgeType::from(rom[0x147]) {
-        CartridgeType::RomOnly => todo!(),
+        CartridgeType::RomOnly => Box::new(RomOnly::new(rom)),
         CartridgeType::Mbc1 => Box::new(Mbc1::new(rom)),
     }
 }

@@ -1,3 +1,5 @@
+use sdl2::pixels::Color as SdlColor;
+
 use crate::{
     frame_buffer::FrameBuffer,
     mmu::{Mmu, INT_FLAG_ADDRESS},
@@ -8,7 +10,7 @@ const TICKS_PER_SCANLINE_VRAM: usize = 172;
 const TICKS_PER_HBLANK: usize = 204;
 const TICKS_PER_SCANLINE: usize =
     TICKS_PER_SCANLINE_OAM + TICKS_PER_SCANLINE_VRAM + TICKS_PER_HBLANK;
-const TICKS_PER_VBLANK: usize = 4560;
+const _TICKS_PER_VBLANK: usize = 4560;
 
 const TILESET_ZERO_ADDRESS: usize = 0x8000;
 const TILESET_ONE_ADDRESS: usize = 0x8800;
@@ -27,8 +29,8 @@ const LYC_ADDRESS: usize = 0xff45;
 
 const BGP_ADDRESS: usize = 0xff47;
 
-const GAMEBOY_WIDTH: usize = 160;
-const GAMEBOY_HEIGHT: usize = 144;
+pub const GAMEBOY_WIDTH: usize = 160;
+pub const GAMEBOY_HEIGHT: usize = 144;
 const BG_MAP_SIZE: usize = 256;
 
 const TILES_PER_LINE: usize = 32;
@@ -52,6 +54,17 @@ pub enum Color {
     Black,
 }
 
+impl Color {
+    pub fn as_u8(&self) -> u8 {
+        match self {
+            Color::White => 0,
+            Color::LightGray => 1,
+            Color::DarkGray => 2,
+            Color::Black => 3,
+        }
+    }
+}
+
 impl From<u8> for Color {
     fn from(value: u8) -> Self {
         match value {
@@ -60,6 +73,17 @@ impl From<u8> for Color {
             2 => Color::DarkGray,
             3 => Color::Black,
             _ => panic!("invalid color value"),
+        }
+    }
+}
+
+impl Into<SdlColor> for Color {
+    fn into(self) -> SdlColor {
+        match self {
+            Color::White => SdlColor::RGB(155, 188, 15),
+            Color::LightGray => SdlColor::RGB(139, 172, 15),
+            Color::DarkGray => SdlColor::RGB(48, 98, 48),
+            Color::Black => SdlColor::RGB(15, 56, 15),
         }
     }
 }
@@ -101,6 +125,7 @@ pub struct Ppu {
     cycle_counter: usize,
     current_mode: VideoMode,
     buffer: FrameBuffer,
+    pub should_draw: bool,
 }
 
 impl Default for Ppu {
@@ -109,11 +134,16 @@ impl Default for Ppu {
             cycle_counter: 0,
             current_mode: VideoMode::SearchingOam,
             buffer: FrameBuffer::new(GAMEBOY_WIDTH, GAMEBOY_HEIGHT),
+            should_draw: false,
         }
     }
 }
 
 impl Ppu {
+    pub fn buffer(&self) -> &FrameBuffer {
+        &self.buffer
+    }
+
     pub fn tick(&mut self, cycles: usize, mmu: &mut Mmu) {
         self.cycle_counter += cycles;
 
@@ -184,8 +214,8 @@ impl Ppu {
                 mmu.set_bit_to(LCD_STATUS_ADDRESS, 0, true);
                 mmu.set_bit_to(INT_FLAG_ADDRESS, 0, true);
             } else {
-                mmu.set_bit_to(LCD_STATUS_ADDRESS, 1, false);
-                mmu.set_bit_to(LCD_STATUS_ADDRESS, 0, true);
+                mmu.set_bit_to(LCD_STATUS_ADDRESS, 1, true);
+                mmu.set_bit_to(LCD_STATUS_ADDRESS, 0, false);
                 self.current_mode = VideoMode::SearchingOam;
             }
         }
@@ -199,6 +229,14 @@ impl Ppu {
 
             if mmu.read_byte(LY_ADDRESS) == 154 {
                 self.write_sprites(mmu);
+
+                self.should_draw = true;
+
+                mmu.write_byte(LY_ADDRESS, 0);
+                self.current_mode = VideoMode::SearchingOam;
+
+                mmu.set_bit_to(LCD_STATUS_ADDRESS, 1, true);
+                mmu.set_bit_to(LCD_STATUS_ADDRESS, 0, false);
             }
         }
     }
@@ -247,7 +285,7 @@ impl Ppu {
         let screen_y = current_line as usize;
 
         for screen_x in 0..GAMEBOY_WIDTH {
-            let scrolled_x = screen_x.wrapping_add((mmu.read_byte(WX) as usize).wrapping_sub(7));
+            let scrolled_x = screen_x + mmu.read_byte(WX) as usize;
             let scrolled_y = screen_y + mmu.read_byte(WY) as usize;
 
             let bg_map_x = scrolled_x % BG_MAP_SIZE;
@@ -280,6 +318,7 @@ impl Ppu {
             let pixels_2 = mmu.read_byte(tile_line_data_start_address + 1);
 
             let pixel_color = self.get_pixel_from_line(pixels_1, pixels_2, tile_pixel_x);
+
             let screen_color = palette.get_color(pixel_color);
 
             self.buffer.set_pixel(screen_x, screen_y, screen_color);
@@ -287,7 +326,7 @@ impl Ppu {
     }
 
     fn get_pixel_from_line(&self, byte1: u8, byte2: u8, pixel_index: usize) -> u8 {
-        ((byte2 << 7 - pixel_index) << 1) | byte1 << 7 - pixel_index
+        (((byte2 >> (7 - pixel_index)) & 1) << 1) | ((byte1 >> (7 - pixel_index)) & 1)
     }
 
     fn load_palette(&self, mmu: &Mmu) -> Palette {

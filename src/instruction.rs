@@ -699,6 +699,9 @@ pub enum Opcode {
     #[instruction(instruction_type = "AdcD8", len = 1, cycles = [8])]
     ADC_D8 = 0xce,
 
+    #[instruction(instruction_type = "Rst", len = 0, cycles = [16])]
+    RST08 = 0xcf,
+
     #[instruction(instruction_type = "Ret", len = 0, cycles = [20, 8])]
     RET_NC = 0xd0,
 

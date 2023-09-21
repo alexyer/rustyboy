@@ -428,6 +428,7 @@ impl Cpu {
                     },
                     InstructionType::Rst => match instruction.opcode() {
                         Opcode::RST00 => self.call_a16(&[0x00, 0x00], mmu),
+                        Opcode::RST08 => self.call_a16(&[0x08, 0x00], mmu),
                         _ => unreachable!(),
                     },
                     InstructionType::Di => self.di(),
@@ -908,6 +909,7 @@ impl Cpu {
             Opcode::RET_Z => Some(NormalInstruction::ret_z(&[]).into()),
             Opcode::RET_NZ => Some(NormalInstruction::ret_nz(&[]).into()),
             Opcode::RST00 => Some(NormalInstruction::rst00(&[]).into()),
+            Opcode::RST08 => Some(NormalInstruction::rst08(&[]).into()),
             Opcode::RLA => Some(NormalInstruction::rla(&[]).into()),
             Opcode::RRA => Some(NormalInstruction::rra(&[]).into()),
             Opcode::CPL => Some(NormalInstruction::cpl(&[]).into()),
@@ -2746,6 +2748,7 @@ mod tests {
     }
 
     test_rst_d8!(0x00, &[0xc7], test_rst_00);
+    test_rst_d8!(0x08, &[0xcf], test_rst_08);
 
     #[test]
     fn test_ret_c() {

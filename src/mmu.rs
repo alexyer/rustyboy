@@ -75,6 +75,7 @@ impl Mmu {
         match addr {
             addr if addr < 0x8000 => self.cartridge_write_byte(addr, data),
             addr if addr >= 0x8000 && addr < 0xa000 => self.vram_write_byte(addr - 0x8000, data),
+            addr if addr >= 0xa000 && addr < 0xc000 => self.cartridge_write_byte(addr, data),
             addr if addr >= 0xc000 && addr < 0xe000 => self.wram_write_byte(addr - 0xc000, data),
             addr if addr >= 0xfe00 && addr < 0xfea0 => self.oam_write_byte(addr - 0xfe00, data),
             addr if addr >= 0xff00 && addr < 0xff80 => self.io_write_byte(addr - 0xff00, data),
@@ -88,6 +89,7 @@ impl Mmu {
         match addr {
             addr if addr < 0x8000 => self.cartridge_read_byte(addr),
             addr if addr >= 0x8000 && addr < 0xa000 => self.vram_read_byte(addr - 0x8000),
+            addr if addr >= 0xa000 && addr < 0xc000 => self.cartridge_read_byte(addr),
             addr if addr >= 0xc000 && addr < 0xe000 => self.wram_read_byte(addr - 0xc000),
             addr if addr >= 0xfe00 && addr < 0xfea0 => self.oam_read_byte(addr - 0xfe00),
             addr if addr >= 0xff00 && addr < 0xff80 => self.io_read_byte(addr - 0xff00),

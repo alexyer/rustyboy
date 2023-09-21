@@ -6,6 +6,10 @@ authors = ["Oleksandr Yermakov <olexander.yermakov@gmail.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release]
+debug = true
+
 [dependencies]
 rustyboy_instruction_derive = { version = "*", path = "./instruction_derive" }
 num_enum = "0.7.0"
+sdl2 = "0.35.2"

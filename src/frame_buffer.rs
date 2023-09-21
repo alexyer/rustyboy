@@ -22,4 +22,8 @@ impl FrameBuffer {
     pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
         self.buffer[y * self.width + x] = color;
     }
+
+    pub fn as_slice(&self) -> &[Color] {
+        &self.buffer
+    }
 }

@@ -1,8 +1,9 @@
 use crate::{
     cartridge::load_cartridge,
     cpu::Cpu,
-    mmu::{Mmu, INT_ENABLE_ADDRESS},
+    mmu::Mmu,
     ppu::Ppu,
+    screen::{Headless, Screen, Sdl},
 };
 
 const CYCLES_PER_SEC: usize = 4194304;
@@ -29,26 +30,48 @@ impl GameBoy {
         gb
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self, headless: bool) {
+        if headless {
+            self._run(&mut Headless::default());
+        } else {
+            self._run(&mut Sdl::default());
+        };
+    }
+
+    pub fn _run(&mut self, screen: &mut impl Screen) {
         loop {
             let start = std::time::Instant::now();
 
             let mut executed_cycles = 0;
             while executed_cycles <= CYCLES_PER_SEC {
-                executed_cycles += self.step();
+                let (cycles, should_quit) = self.step(screen);
+                executed_cycles += cycles;
+
+                if should_quit {
+                    return;
+                }
             }
-            // println!("{}", self.cpu);
-            // println!("IE: 0b{:08b}", self.mmu.read_byte(INT_ENABLE_ADDRESS));
+
             std::thread::sleep(
                 std::time::Duration::from_secs(1) - std::time::Instant::now().duration_since(start),
             );
         }
     }
 
-    pub fn step(&mut self) -> usize {
+    pub fn step(&mut self, screen: &mut impl Screen) -> (usize, bool) {
+        let mut should_quit = false;
+
         let cycles = self.cpu.tick(&mut self.mmu);
         self.ppu.tick(cycles, &mut self.mmu);
 
-        cycles
+        if self.ppu.should_draw {
+            should_quit = screen.poll_events();
+
+            screen.update(self.ppu.buffer());
+
+            self.ppu.should_draw = false;
+        }
+
+        (cycles, should_quit)
     }
 }
