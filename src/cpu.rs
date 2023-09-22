@@ -291,11 +291,7 @@ impl Cpu {
             return;
         }
 
-        handled_interrupt = self.handle_interrupt(4, 0x60, fired_interrupts, mmu);
-
-        if handled_interrupt {
-            return;
-        }
+        self.handle_interrupt(4, 0x60, fired_interrupts, mmu);
     }
 
     fn handle_interrupt(
@@ -429,6 +425,7 @@ impl Cpu {
                     InstructionType::Rst => match instruction.opcode() {
                         Opcode::RST00 => self.call_a16(&[0x00, 0x00], mmu),
                         Opcode::RST08 => self.call_a16(&[0x08, 0x00], mmu),
+                        Opcode::RST10 => self.call_a16(&[0x10, 0x00], mmu),
                         _ => unreachable!(),
                     },
                     InstructionType::Di => self.di(),
@@ -792,6 +789,7 @@ impl Cpu {
 
                 Some(NormalInstruction::ld_de_d16(&data).into())
             }
+            Opcode::LD_IND_BC_A => Some(NormalInstruction::ld_ind_bc_a(&[]).into()),
             Opcode::LD_IND_DE_A => Some(NormalInstruction::ld_ind_de_a(&[]).into()),
             Opcode::LD_IND_HL_A => Some(NormalInstruction::ld_ind_hl_a(&[]).into()),
             Opcode::LD_IND_HL_B => Some(NormalInstruction::ld_ind_hl_b(&[]).into()),
@@ -918,6 +916,7 @@ impl Cpu {
             Opcode::RET_NZ => Some(NormalInstruction::ret_nz(&[]).into()),
             Opcode::RST00 => Some(NormalInstruction::rst00(&[]).into()),
             Opcode::RST08 => Some(NormalInstruction::rst08(&[]).into()),
+            Opcode::RST10 => Some(NormalInstruction::rst10(&[]).into()),
             Opcode::RLA => Some(NormalInstruction::rla(&[]).into()),
             Opcode::RRA => Some(NormalInstruction::rra(&[]).into()),
             Opcode::CPL => Some(NormalInstruction::cpl(&[]).into()),
@@ -2208,9 +2207,9 @@ mod tests {
                 let mut cpu = Cpu::default();
                 let mut mmu = Mmu::default();
                 cpu.regs.write_reg($src, 0);
-                cpu.regs.write_reg($dst, 5);
+                cpu.regs.write_reg($dst, 0x40);
                 mmu.write_slice($mnemonic, 0);
-                mmu.write_byte(0xff05, 0xaa);
+                mmu.write_byte(0xff40, 0xaa);
 
                 let cycles = cpu.exec_instruction(&mut mmu);
 
@@ -2836,6 +2835,7 @@ mod tests {
 
     test_rst_d8!(0x00, &[0xc7], test_rst_00);
     test_rst_d8!(0x08, &[0xcf], test_rst_08);
+    test_rst_d8!(0x10, &[0xd7], test_rst_10);
 
     #[test]
     fn test_ret_c() {
@@ -3085,13 +3085,13 @@ mod tests {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
         cpu.regs.write_reg(Reg::A, 42);
-        mmu.write_slice(&[0xe0, 0x00], 0);
+        mmu.write_slice(&[0xe0, 0x40], 0);
 
         let cycles = cpu.exec_instruction(&mut mmu);
 
         assert_eq!(cycles, 12);
         assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
-        assert_eq!(mmu.read_byte(0xff00), 42);
+        assert_eq!(mmu.read_byte(0xff40), 42);
     }
 
     test_ld_r_a16!(Reg::A, &[0xfa, 0x05, 0x00], test_ld_a_a16);
@@ -3101,8 +3101,8 @@ mod tests {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
         cpu.regs.write_reg(Reg::A, 0);
-        mmu.write_slice(&[0xf0, 0x00], 0);
-        mmu.write_byte(0xff00, 42);
+        mmu.write_slice(&[0xf0, 0x40], 0);
+        mmu.write_byte(0xff40, 42);
 
         let cycles = cpu.exec_instruction(&mut mmu);
 
@@ -3537,6 +3537,7 @@ mod tests {
         assert_eq!(mmu.read_byte(5), 42);
     }
 
+    test_ld_ind_rr_r!(Reg::A, Reg16::BC, &[0x02], test_ld_ind_bc_a);
     test_ld_ind_rr_r!(Reg::A, Reg16::DE, &[0x12], test_ld_ind_de_a);
     test_ld_ind_rr_r!(Reg::A, Reg16::HL, &[0x32], test_ld_ind_hl_a);
     test_ld_ind_rr_r!(Reg::B, Reg16::HL, &[0x70], test_ld_ind_hl_b);
@@ -3551,14 +3552,14 @@ mod tests {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
         cpu.regs.write_reg(Reg::A, 42);
-        cpu.regs.write_reg(Reg::C, 5);
+        cpu.regs.write_reg(Reg::C, 0x40);
         mmu.write_slice(&[0xe2], 0);
 
         let cycles = cpu.exec_instruction(&mut mmu);
 
         assert_eq!(cycles, 8);
         assert_eq!(cpu.regs.read_reg16(Reg16::PC), 1);
-        assert_eq!(mmu.read_byte(0xff05), 42);
+        assert_eq!(mmu.read_byte(0xff40), 42);
     }
 
     test_ld_r_ind_rr!(Reg16::DE, Reg::A, &[0x1a, 0xff], test_ld_a_ind_de);

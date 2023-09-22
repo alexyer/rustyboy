@@ -77,6 +77,7 @@ impl Mmu {
             addr if addr >= 0x8000 && addr < 0xa000 => self.vram_write_byte(addr - 0x8000, data),
             addr if addr >= 0xa000 && addr < 0xc000 => self.cartridge_write_byte(addr, data),
             addr if addr >= 0xc000 && addr < 0xe000 => self.wram_write_byte(addr - 0xc000, data),
+            addr if addr >= 0xe000 && addr < 0xfe00 => self.wram_write_byte(addr - 0xe000, data),
             addr if addr >= 0xfe00 && addr < 0xfea0 => self.oam_write_byte(addr - 0xfe00, data),
             addr if addr >= 0xff00 && addr < 0xff80 => self.io_write_byte(addr - 0xff00, data),
             addr if addr >= 0xff80 && addr < 0xffff => self.hram_write_byte(addr - 0xff80, data),
@@ -91,6 +92,7 @@ impl Mmu {
             addr if addr >= 0x8000 && addr < 0xa000 => self.vram_read_byte(addr - 0x8000),
             addr if addr >= 0xa000 && addr < 0xc000 => self.cartridge_read_byte(addr),
             addr if addr >= 0xc000 && addr < 0xe000 => self.wram_read_byte(addr - 0xc000),
+            addr if addr >= 0xe000 && addr < 0xfe00 => self.wram_read_byte(addr - 0xe000),
             addr if addr >= 0xfe00 && addr < 0xfea0 => self.oam_read_byte(addr - 0xfe00),
             addr if addr >= 0xff00 && addr < 0xff80 => self.io_read_byte(addr - 0xff00),
             addr if addr >= 0xff80 && addr < 0xffff => self.hram_read_byte(addr - 0xff80),
@@ -137,15 +139,94 @@ impl Mmu {
     }
 
     fn io_write_byte(&mut self, addr: usize, data: u8) {
-        // TODO(alexyer): Remove later. Currently it's used to log test rom output.
         if addr == 0x01 || addr == 0x02 {
             print!("{}", data as char);
         }
-        self.io[addr] = data
+
+        match addr {
+            // TODO(alexyer): Remove later. Currently it's used to log test rom output.
+            addr if addr <= 0x02 => print!("{}", data as char),
+            // DIV
+            0x04 => self.io[addr] = data,
+            // TIMA
+            0x05 => self.io[addr] = data,
+            // TMA
+            0x06 => self.io[addr] = data,
+            // TAC
+            0x07 => self.io[addr] = data,
+            // TODO(alexyer): implement sound.
+            addr if addr >= 0x10 && addr <= 0x26 => (),
+            // LCDC
+            0x40 => self.io[addr] = data,
+            // STAT
+            0x41 => self.io[addr] = data,
+            // SCY
+            0x42 => self.io[addr] = data,
+            // SCX
+            0x43 => self.io[addr] = data,
+            // LY
+            0x44 => self.io[addr] = data,
+            // LYC
+            0x45 => self.io[addr] = data,
+            // DMA
+            0x46 => self.dma_transfer(data),
+            // BGP
+            0x47 => self.io[addr] = data,
+            // OBP0
+            0x48 => self.io[addr] = data,
+            // OBP1
+            0x49 => self.io[addr] = data,
+            // WY
+            0x4a => self.io[addr] = data,
+            // WX
+            0x4b => self.io[addr] = data,
+
+            // ???
+            0x50 => self.io[addr] = data,
+
+            //IF
+            0x0f => self.io[addr] = data,
+            _ => panic!("unsupported IO write: 0x{addr:x}"),
+        }
     }
 
     fn io_read_byte(&self, addr: usize) -> u8 {
-        self.io[addr]
+        match addr {
+            // DIV
+            0x04 => self.io[addr],
+            // TIMA
+            0x05 => self.io[addr],
+            // TMA
+            0x06 => self.io[addr],
+            // TAC
+            0x07 => self.io[addr],
+            // LCDC
+            0x40 => self.io[addr],
+            // STAT
+            0x41 => self.io[addr],
+            // SCY
+            0x42 => self.io[addr],
+            // SCX
+            0x43 => self.io[addr],
+            // LY
+            0x44 => self.io[addr],
+            // LYC
+            0x45 => self.io[addr],
+            0x46 => 0xff,
+            // BGP
+            0x47 => self.io[addr],
+            // OBP0
+            0x48 => self.io[addr],
+            // OBP1
+            0x49 => self.io[addr],
+            // WY
+            0x4a => self.io[addr],
+            // WX
+            0x4b => self.io[addr],
+            // IF
+            0x0f => self.io[addr],
+            _ => panic!("unsupported IO read: 0x{addr:x}"),
+        }
     }
 
     fn vram_write_byte(&mut self, addr: usize, data: u8) {
@@ -187,6 +268,13 @@ impl Mmu {
     fn ie_read(&self) -> u8 {
         self.ie
     }
+
+    fn dma_transfer(&mut self, addr: u8) {
+        let addr = addr as usize * 0x100;
+        let data = self.read_slice(addr, 0xa0);
+
+        self.oam.copy_from_slice(&data);
+    }
 }
 
 #[cfg(test)]
@@ -217,5 +305,24 @@ mod tests {
         mmu.write_slice(&[42], 0);
 
         assert_eq!(mmu.read_byte(0), 42);
+    }
+
+    #[test]
+    fn test_read_byte_from_dma() {
+        let mmu = Mmu::default();
+
+        assert_eq!(mmu.read_byte(0xff46), 0xff);
+    }
+
+    #[test]
+    fn test_write_to_dma() {
+        let mut mmu = Mmu::default();
+        mmu.write_slice(&[0xde, 0xad, 0xbe, 0xef], 0);
+
+        assert_eq!(mmu.read_byte(0xfe00), 0);
+
+        mmu.write_byte(0xff46, 0);
+
+        assert_eq!(mmu.read_byte(0xfe00), 0xde);
     }
 }

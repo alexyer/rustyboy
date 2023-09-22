@@ -4,14 +4,16 @@ use crate::{
     mmu::Mmu,
     ppu::Ppu,
     screen::{Headless, Screen, Sdl},
+    timer::Timer,
 };
 
-const CYCLES_PER_SEC: usize = 4194304;
+pub const CYCLES_PER_SEC: usize = 4194304;
 
 pub struct GameBoy {
     cpu: Cpu,
     mmu: Mmu,
     ppu: Ppu,
+    timer: Timer,
 }
 
 impl GameBoy {
@@ -20,11 +22,14 @@ impl GameBoy {
 
         println!("ROM name: {}", cartridge.name());
         println!("Cartridge type: {:?}", cartridge.cartridge_type());
+        println!("Ram size: {:?}", cartridge.ram_size());
+        println!("CBG flag: {:?}", cartridge.cgb_flag());
 
         let gb = Self {
             cpu: Cpu::default(),
             mmu: Mmu::new(Some(boot_rom.to_vec()), cartridge),
             ppu: Ppu::default(),
+            timer: Timer::default(),
         };
 
         gb
@@ -52,9 +57,12 @@ impl GameBoy {
                 }
             }
 
-            std::thread::sleep(
-                std::time::Duration::from_secs(1) - std::time::Instant::now().duration_since(start),
-            );
+            if std::time::Instant::now().duration_since(start) < std::time::Duration::from_secs(1) {
+                std::thread::sleep(
+                    std::time::Duration::from_secs(1)
+                        - std::time::Instant::now().duration_since(start),
+                );
+            }
         }
     }
 
@@ -63,6 +71,7 @@ impl GameBoy {
 
         let cycles = self.cpu.tick(&mut self.mmu);
         self.ppu.tick(cycles, &mut self.mmu);
+        self.timer.tick(cycles, &mut self.mmu);
 
         if self.ppu.should_draw {
             should_quit = screen.poll_events();

@@ -2,8 +2,12 @@ use sdl2::pixels::Color as SdlColor;
 
 use crate::{
     frame_buffer::FrameBuffer,
+    get_bit,
     mmu::{Mmu, INT_FLAG_ADDRESS},
+    screen,
 };
+
+use crate::check_bit;
 
 const TICKS_PER_SCANLINE_OAM: usize = 80;
 const TICKS_PER_SCANLINE_VRAM: usize = 172;
@@ -29,6 +33,9 @@ const LYC_ADDRESS: usize = 0xff45;
 
 const BGP_ADDRESS: usize = 0xff47;
 
+const OBP0_ADDRESS: usize = 0xff48;
+const OBP1_ADDRESS: usize = 0xff49;
+
 pub const GAMEBOY_WIDTH: usize = 160;
 pub const GAMEBOY_HEIGHT: usize = 144;
 const BG_MAP_SIZE: usize = 256;
@@ -38,6 +45,8 @@ const TILE_HEIGHT_PX: usize = 8;
 const TILE_WIDTH_PX: usize = 8;
 const TILE_BYTES: usize = 2 * 8;
 
+const SPRITE_BYTES: usize = 4;
+
 macro_rules! check_lcd_control {
     ($name:ident, $bit:expr) => {
         fn $name(&self, mmu: &Mmu) -> bool {
@@ -46,7 +55,7 @@ macro_rules! check_lcd_control {
     };
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum Color {
     White,
     LightGray,
@@ -121,6 +130,47 @@ pub enum VideoMode {
     TransferingData,
 }
 
+struct Tile {
+    buffer: [u8; TILE_HEIGHT_PX * 2 * TILE_WIDTH_PX],
+}
+
+impl Tile {
+    pub fn new(mmu: &Mmu, tile_address: usize, size_multiplier: usize) -> Self {
+        let mut buffer = [0; TILE_HEIGHT_PX * 2 * TILE_WIDTH_PX];
+
+        for tile_line in 0..TILE_HEIGHT_PX * size_multiplier {
+            let index_into_tile = 2 * tile_line;
+            let line_start = tile_address + index_into_tile;
+
+            let pixels_1 = mmu.read_byte(line_start);
+            let pixels_2 = mmu.read_byte(line_start + 1);
+
+            let pixel_line = Self::get_pixel_line(pixels_1, pixels_2);
+
+            for x in 0..TILE_WIDTH_PX {
+                buffer[tile_line * TILE_HEIGHT_PX + x] = pixel_line[x];
+            }
+        }
+
+        Self { buffer }
+    }
+
+    pub fn get_pixel_line(byte_1: u8, byte_2: u8) -> Vec<u8> {
+        let mut pixel_line = vec![];
+
+        for i in 0..8 {
+            let color = ((get_bit!(byte_2, 7 - i) << 1) | (get_bit!(byte_1, 7 - i)));
+            pixel_line.push(color)
+        }
+
+        pixel_line
+    }
+
+    pub fn get_pixel(&self, x: usize, y: usize) -> u8 {
+        self.buffer[y * TILE_HEIGHT_PX + x]
+    }
+}
+
 pub struct Ppu {
     cycle_counter: usize,
     current_mode: VideoMode,
@@ -159,6 +209,7 @@ impl Ppu {
     check_lcd_control!(window_enabled, 5);
     check_lcd_control!(bg_window_tile_data, 4);
     check_lcd_control!(bg_tile_map, 3);
+    check_lcd_control!(sprite_size, 2);
     check_lcd_control!(sprites_enabled, 1);
     check_lcd_control!(bg_enabled, 0);
 
@@ -241,12 +292,14 @@ impl Ppu {
         }
     }
 
-    fn write_sprites(&self, mmu: &Mmu) {
+    fn write_sprites(&mut self, mmu: &Mmu) {
         if !self.sprites_enabled(mmu) {
             return;
         }
 
-        todo!()
+        for sprite_n in 0..40 {
+            self.draw_sprite(mmu, sprite_n);
+        }
     }
 
     fn write_scanline(&mut self, mmu: &mut Mmu, current_line: u8) {
@@ -263,12 +316,114 @@ impl Ppu {
         }
     }
 
+    fn draw_sprite(&mut self, mmu: &Mmu, sprite_n: usize) {
+        let offset_in_oam = sprite_n * SPRITE_BYTES;
+
+        let oam_start = 0xfe00 + offset_in_oam;
+
+        let sprite_y = mmu.read_byte(oam_start);
+        let sprite_x = mmu.read_byte(oam_start + 1);
+
+        // println!("x: {sprite_x}, y: {sprite_y}");
+
+        if sprite_y == 0 || sprite_y >= 160 {
+            return;
+        }
+
+        if sprite_x == 0 || sprite_x >= 168 {
+            return;
+        }
+
+        let sprite_size_multiplier = if self.sprite_size(mmu) { 2 } else { 1 };
+
+        let tile_set_location = TILESET_ZERO_ADDRESS;
+
+        let pattern_n = mmu.read_byte(oam_start + 2);
+        let sprite_attrs = mmu.read_byte(oam_start + 3);
+
+        let use_palette_1 = check_bit!(sprite_attrs, 4);
+        let flip_x = check_bit!(sprite_attrs, 5);
+        let flip_y = check_bit!(sprite_attrs, 6);
+        let obj_behind_bg = check_bit!(sprite_attrs, 7);
+
+        let palette = if use_palette_1 {
+            self.load_palette(mmu, OBP1_ADDRESS)
+        } else {
+            self.load_palette(mmu, OBP0_ADDRESS)
+        };
+
+        let tile_offset = pattern_n as usize * TILE_BYTES;
+
+        let pattern_address = tile_set_location.wrapping_add(tile_offset);
+
+        let tile = Tile::new(mmu, pattern_address, sprite_size_multiplier);
+
+        let start_y = (sprite_y as i16).wrapping_mul(16);
+        let start_x = (sprite_x as i16).wrapping_mul(8);
+
+        for y in 0..TILE_HEIGHT_PX * sprite_size_multiplier {
+            for x in 0..TILE_WIDTH_PX {
+                let maybe_flipped_y = if !flip_y {
+                    y
+                } else {
+                    TILE_HEIGHT_PX
+                        .wrapping_mul(sprite_size_multiplier)
+                        .wrapping_sub(y)
+                        .wrapping_sub(1)
+                };
+
+                let maybe_flipped_x = if !flip_x {
+                    x
+                } else {
+                    TILE_WIDTH_PX.wrapping_sub(x).wrapping_sub(1)
+                };
+
+                let color = tile.get_pixel(maybe_flipped_x, maybe_flipped_y);
+
+                if Color::from(color) == Color::Black {
+                    continue;
+                }
+
+                let screen_x = start_x.wrapping_add(x as i16);
+                let screen_y = start_y.wrapping_add(y as i16);
+
+                if !Self::is_on_screen(screen_x as u8, screen_y as u8) {
+                    continue;
+                }
+
+                let existing_pixel = self.buffer.get_pixel(screen_x as usize, screen_y as usize);
+
+                if obj_behind_bg && existing_pixel != Color::White {
+                    continue;
+                }
+
+                self.buffer.set_pixel(
+                    screen_x as usize,
+                    screen_y as usize,
+                    palette.get_color(color),
+                );
+            }
+        }
+    }
+
+    fn is_on_screen_x(x: u8) -> bool {
+        (x as usize) < GAMEBOY_WIDTH
+    }
+
+    fn is_on_screen_y(y: u8) -> bool {
+        (y as usize) < GAMEBOY_HEIGHT
+    }
+
+    fn is_on_screen(x: u8, y: u8) -> bool {
+        Self::is_on_screen_x(x) && Self::is_on_screen_y(y)
+    }
+
     #[allow(overflowing_literals)]
     fn draw_bg_line(&mut self, mmu: &Mmu, current_line: u8) {
         let use_tile_set_zero = self.bg_window_tile_data(mmu);
         let use_tile_map_zero = !self.bg_tile_map(mmu);
 
-        let palette = self.load_palette(mmu);
+        let palette = self.load_palette(mmu, BGP_ADDRESS);
 
         let tileset_address = if use_tile_set_zero {
             TILESET_ZERO_ADDRESS
@@ -305,13 +460,14 @@ impl Ppu {
             let tile_data_mem_offset = if use_tile_set_zero {
                 tile_id as usize * TILE_BYTES
             } else {
-                (tile_id as i8).wrapping_add(128) as usize * TILE_BYTES
+                ((tile_id as i8).wrapping_add(128) as usize).wrapping_mul(TILE_BYTES)
             };
 
             let tile_data_line_offset = tile_pixel_y * 2;
 
-            let tile_line_data_start_address =
-                tileset_address + tile_data_mem_offset + tile_data_line_offset;
+            let tile_line_data_start_address = tileset_address
+                .wrapping_add(tile_data_mem_offset)
+                .wrapping_add(tile_data_line_offset);
 
             // TODO: optimize
             let pixels_1 = mmu.read_byte(tile_line_data_start_address);
@@ -329,13 +485,13 @@ impl Ppu {
         (((byte2 >> (7 - pixel_index)) & 1) << 1) | ((byte1 >> (7 - pixel_index)) & 1)
     }
 
-    fn load_palette(&self, mmu: &Mmu) -> Palette {
-        let bgp = mmu.read_byte(BGP_ADDRESS);
+    fn load_palette(&self, mmu: &Mmu, address: usize) -> Palette {
+        let val = mmu.read_byte(address);
 
-        let color0 = bgp & 3;
-        let color1 = bgp >> 2 & 3;
-        let color2 = bgp >> 4 & 3;
-        let color3 = bgp >> 6 & 3;
+        let color0 = val & 3;
+        let color1 = val >> 2 & 3;
+        let color2 = val >> 4 & 3;
+        let color3 = val >> 6 & 3;
 
         Palette(color0.into(), color1.into(), color2.into(), color3.into())
     }

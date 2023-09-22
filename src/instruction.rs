@@ -123,6 +123,9 @@ pub enum Opcode {
     #[instruction(regs = ["BC"], instruction_type = "LdRrD16", len = 2, cycles = [12])]
     LD_BC_D16 = 0x01,
 
+    #[instruction(regs = ["BC", "A"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
+    LD_IND_BC_A = 0x02,
+
     #[instruction(regs = ["BC"], instruction_type = "IncRr", len = 0, cycles = [8])]
     INC_BC = 0x03,
 
@@ -727,6 +730,9 @@ pub enum Opcode {
 
     #[instruction(instruction_type = "SubD8", len = 1, cycles = [8])]
     SUB_D8 = 0xd6,
+
+    #[instruction(instruction_type = "Rst", len = 0, cycles = [16])]
+    RST10 = 0xd7,
 
     #[instruction(instruction_type = "Ret", len = 0, cycles = [20, 8])]
     RET_C = 0xd8,

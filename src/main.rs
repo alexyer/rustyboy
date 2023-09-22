@@ -9,6 +9,8 @@ mod instruction;
 mod mmu;
 mod ppu;
 mod screen;
+mod timer;
+mod utils;
 
 use std::{fs::File, io::Read};
 
