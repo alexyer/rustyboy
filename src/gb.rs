@@ -1,6 +1,8 @@
+use std::{fs::File, io::Write};
+
 use crate::{
     cartridge::load_cartridge,
-    cpu::Cpu,
+    cpu::{Cpu, Reg, Reg16},
     mmu::Mmu,
     ppu::Ppu,
     screen::{Headless, Screen, Sdl},
@@ -17,7 +19,7 @@ pub struct GameBoy {
 }
 
 impl GameBoy {
-    pub fn new(boot_rom: &[u8], rom: &[u8]) -> Self {
+    pub fn new(boot_rom: Option<&[u8]>, rom: &[u8]) -> Self {
         let cartridge = load_cartridge(rom);
 
         println!("ROM name: {}", cartridge.name());
@@ -25,30 +27,65 @@ impl GameBoy {
         println!("Ram size: {:?}", cartridge.ram_size());
         println!("CBG flag: {:?}", cartridge.cgb_flag());
 
-        let gb = Self {
-            cpu: Cpu::default(),
-            mmu: Mmu::new(Some(boot_rom.to_vec()), cartridge),
-            ppu: Ppu::default(),
-            timer: Timer::default(),
+        let gb = if let Some(boot_rom) = boot_rom {
+            Self {
+                cpu: Cpu::default(),
+                mmu: Mmu::new(Some(boot_rom.to_vec()), cartridge),
+                ppu: Ppu::default(),
+                timer: Timer::default(),
+            }
+        } else {
+            let mut gb = Self {
+                cpu: Cpu::default(),
+                mmu: Mmu::new(None, cartridge),
+                ppu: Ppu::default(),
+                timer: Timer::default(),
+            };
+
+            gb.cpu.regs.write_reg(Reg::A, 0x01);
+            gb.cpu.regs.write_reg(Reg::C, 0x13);
+            gb.cpu.regs.write_reg(Reg::E, 0xd8);
+            gb.cpu.regs.write_reg(Reg::H, 0x01);
+            gb.cpu.regs.write_reg(Reg::L, 0x4d);
+            gb.cpu.regs.write_reg16(Reg16::SP, 0xfffe);
+            gb.cpu.regs.write_reg16(Reg16::PC, 0x0100);
+
+            gb.cpu.set_c();
+            gb.cpu.set_h();
+            gb.cpu.set_z();
+
+            gb
         };
 
         gb
     }
 
-    pub fn run(&mut self, headless: bool) {
+    pub fn run(&mut self, headless: bool, log_file: Option<String>) {
         if headless {
-            self._run(&mut Headless::default());
+            self._run(&mut Headless::default(), log_file);
         } else {
-            self._run(&mut Sdl::default());
+            self._run(&mut Sdl::default(), log_file);
         };
     }
 
-    pub fn _run(&mut self, screen: &mut impl Screen) {
+    pub fn _run(&mut self, screen: &mut impl Screen, log_file_path: Option<String>) {
+        let log_file = if let Some(path) = log_file_path {
+            Some(File::create(path).unwrap())
+        } else {
+            None
+        };
+
         loop {
             let start = std::time::Instant::now();
 
             let mut executed_cycles = 0;
             while executed_cycles <= CYCLES_PER_SEC {
+                if let Some(mut log_file) = log_file.as_ref() {
+                    log_file
+                        .write_all(self.cpu.log_state(&self.mmu).as_bytes())
+                        .unwrap();
+                }
+
                 let (cycles, should_quit) = self.step(screen);
                 executed_cycles += cycles;
 

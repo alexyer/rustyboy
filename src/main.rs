@@ -17,7 +17,7 @@ use std::{fs::File, io::Read};
 use gb::GameBoy;
 
 fn main() {
-    let boot_rom_path = std::env::var("BOOT_ROM").expect("boot ROM path");
+    let boot_rom_path = std::env::var("BOOT_ROM").ok();
     let rom_path = std::env::var("ROM").expect("ROM path");
 
     let headless = {
@@ -29,7 +29,9 @@ fn main() {
         headless != 0
     };
 
-    let boot_rom = {
+    let log_file = std::env::var("LOG_FILE").ok();
+
+    let boot_rom = if let Some(boot_rom_path) = boot_rom_path {
         let mut boot_rom = Vec::new();
 
         File::open(boot_rom_path)
@@ -37,7 +39,9 @@ fn main() {
             .read_to_end(&mut boot_rom)
             .unwrap();
 
-        boot_rom
+        Some(boot_rom)
+    } else {
+        None
     };
 
     let rom = {
@@ -51,6 +55,6 @@ fn main() {
         rom
     };
 
-    let mut gb = GameBoy::new(&boot_rom, &rom);
-    gb.run(headless);
+    let mut gb = GameBoy::new(boot_rom.as_deref(), &rom);
+    gb.run(headless, log_file);
 }

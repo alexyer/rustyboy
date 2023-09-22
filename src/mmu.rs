@@ -180,6 +180,9 @@ impl Mmu {
             0x4a => self.io[addr] = data,
             // WX
             0x4b => self.io[addr] = data,
+            // TODO(alexyer): Speed switch
+            // KEY1
+            0x4d => self.io[addr] = data,
 
             // ???
             0x50 => self.io[addr] = data,
@@ -200,6 +203,8 @@ impl Mmu {
             0x06 => self.io[addr],
             // TAC
             0x07 => self.io[addr],
+            // TODO(alexyer): implement sound.
+            addr if addr >= 0x10 && addr <= 0x26 => self.io[addr],
             // LCDC
             0x40 => self.io[addr],
             // STAT
@@ -223,6 +228,9 @@ impl Mmu {
             0x4a => self.io[addr],
             // WX
             0x4b => self.io[addr],
+            // TODO(alexyer): speed switch
+            // KEY1
+            0x4d => self.io[addr],
             // IF
             0x0f => self.io[addr],
             _ => panic!("unsupported IO read: 0x{addr:x}"),

@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
+    check_bit,
     errors::InstructionError,
     instruction::{
         Instruction, InstructionType, NormalInstruction, Opcode, PrefixedInstruction,
@@ -19,15 +20,15 @@ macro_rules! prepare_data {
 
 macro_rules! impl_flag {
     ($set_flag:ident, $clear_flag:ident, $set_flag_to:ident, $flag:ident, $i:expr) => {
-        fn $set_flag(&mut self) {
+        pub fn $set_flag(&mut self) {
             self.regs
                 .write_reg(Reg::F, self.regs.read_reg(Reg::F) | 1 << $i)
         }
-        fn $clear_flag(&mut self) {
+        pub fn $clear_flag(&mut self) {
             self.regs
                 .write_reg(Reg::F, self.regs.read_reg(Reg::F) & !(1 << $i))
         }
-        fn $set_flag_to(&mut self, value: bool) {
+        pub fn $set_flag_to(&mut self, value: bool) {
             if value {
                 self.$set_flag()
             } else {
@@ -95,7 +96,7 @@ impl From<&str> for Reg16 {
 }
 
 #[derive(Debug, Default)]
-struct Regs {
+pub struct Regs {
     /// General purpose and flag registers.
     _regs: [u8; 8],
 
@@ -196,12 +197,14 @@ impl Regs {
 
 #[derive(Default, Debug)]
 pub struct Cpu {
-    regs: Regs,
+    pub regs: Regs,
     interrupts_enabled: bool,
 
     /// Set if instruction branched during exectuion.
     /// Reset every cycle.
     branched: bool,
+
+    halted: bool,
 }
 
 impl Display for Cpu {
@@ -246,6 +249,26 @@ impl Display for Cpu {
 }
 
 impl Cpu {
+    pub fn log_state(&self, mmu: &Mmu) -> String {
+        format!(
+            "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
+            self.regs.read_reg(Reg::A),
+            self.regs.read_reg(Reg::F),
+            self.regs.read_reg(Reg::B),
+            self.regs.read_reg(Reg::C),
+            self.regs.read_reg(Reg::D),
+            self.regs.read_reg(Reg::E),
+            self.regs.read_reg(Reg::H),
+            self.regs.read_reg(Reg::L),
+            self.regs.read_reg16(Reg16::SP),
+            self.regs.read_reg16(Reg16::PC),
+            mmu.read_byte(self.regs.read_reg16(Reg16::PC) as usize),
+            mmu.read_byte(self.regs.read_reg16(Reg16::PC) as usize + 1),
+            mmu.read_byte(self.regs.read_reg16(Reg16::PC) as usize + 2),
+            mmu.read_byte(self.regs.read_reg16(Reg16::PC) as usize + 3),
+        )
+    }
+
     pub fn tick(&mut self, mmu: &mut Mmu) -> usize {
         self.handle_interrupts(mmu);
         self.exec_instruction(mmu)
@@ -264,6 +287,9 @@ impl Cpu {
         if fired_interrupts == 0 {
             return;
         }
+
+        self.halted = false;
+        self.push_rr(Reg16::PC, mmu);
 
         let mut handled_interrupt;
 
@@ -301,7 +327,7 @@ impl Cpu {
         fired_interrupts: u8,
         mmu: &mut Mmu,
     ) -> bool {
-        if fired_interrupts & 1 << interrupt_bit == 0 {
+        if !check_bit!(fired_interrupts, interrupt_bit) {
             return false;
         }
 
@@ -314,6 +340,10 @@ impl Cpu {
 
     /// Execute the next instruction and return the number of T-states.
     fn exec_instruction(&mut self, mmu: &mut Mmu) -> usize {
+        if self.halted {
+            return 1;
+        }
+
         match self.read_instruction(mmu) {
             Some(Instruction::Normal(instruction)) => {
                 let regs: Vec<&str> = instruction.regs().iter().map(String::as_str).collect();
@@ -426,6 +456,11 @@ impl Cpu {
                         Opcode::RST00 => self.call_a16(&[0x00, 0x00], mmu),
                         Opcode::RST08 => self.call_a16(&[0x08, 0x00], mmu),
                         Opcode::RST10 => self.call_a16(&[0x10, 0x00], mmu),
+                        Opcode::RST18 => self.call_a16(&[0x18, 0x00], mmu),
+                        Opcode::RST20 => self.call_a16(&[0x20, 0x00], mmu),
+                        Opcode::RST28 => self.call_a16(&[0x28, 0x00], mmu),
+                        Opcode::RST30 => self.call_a16(&[0x30, 0x00], mmu),
+                        Opcode::RST38 => self.call_a16(&[0x38, 0x00], mmu),
                         _ => unreachable!(),
                     },
                     InstructionType::Di => self.di(),
@@ -434,6 +469,7 @@ impl Cpu {
                     InstructionType::Rrca => self.rrca(),
                     InstructionType::Rla => self.rla(),
                     InstructionType::Rra => self.rra(),
+                    InstructionType::Halt => self.halt(),
                     _ => unreachable!(),
                 }
 
@@ -908,6 +944,8 @@ impl Cpu {
 
                 Some(NormalInstruction::call_nz_a16(&data).into())
             }
+            Opcode::HALT => Some(NormalInstruction::halt(&[]).into()),
+            Opcode::STOP => Some(NormalInstruction::halt(&[]).into()),
             Opcode::RET => Some(NormalInstruction::ret(&[]).into()),
             Opcode::RETI => Some(NormalInstruction::reti(&[]).into()),
             Opcode::RET_C => Some(NormalInstruction::ret_c(&[]).into()),
@@ -917,6 +955,11 @@ impl Cpu {
             Opcode::RST00 => Some(NormalInstruction::rst00(&[]).into()),
             Opcode::RST08 => Some(NormalInstruction::rst08(&[]).into()),
             Opcode::RST10 => Some(NormalInstruction::rst10(&[]).into()),
+            Opcode::RST18 => Some(NormalInstruction::rst18(&[]).into()),
+            Opcode::RST20 => Some(NormalInstruction::rst20(&[]).into()),
+            Opcode::RST28 => Some(NormalInstruction::rst28(&[]).into()),
+            Opcode::RST30 => Some(NormalInstruction::rst30(&[]).into()),
+            Opcode::RST38 => Some(NormalInstruction::rst38(&[]).into()),
             Opcode::RLA => Some(NormalInstruction::rla(&[]).into()),
             Opcode::RRA => Some(NormalInstruction::rra(&[]).into()),
             Opcode::CPL => Some(NormalInstruction::cpl(&[]).into()),
@@ -1134,6 +1177,10 @@ impl Cpu {
         } else {
             self.clear_z();
         }
+    }
+
+    fn halt(&mut self) {
+        self.halted = true;
     }
 
     fn call_a16(&mut self, data: &[u8; 2], mmu: &mut Mmu) {
@@ -2836,6 +2883,11 @@ mod tests {
     test_rst_d8!(0x00, &[0xc7], test_rst_00);
     test_rst_d8!(0x08, &[0xcf], test_rst_08);
     test_rst_d8!(0x10, &[0xd7], test_rst_10);
+    test_rst_d8!(0x18, &[0xdf], test_rst_18);
+    test_rst_d8!(0x20, &[0xe7], test_rst_20);
+    test_rst_d8!(0x28, &[0xef], test_rst_28);
+    test_rst_d8!(0x30, &[0xf7], test_rst_30);
+    test_rst_d8!(0x38, &[0xff], test_rst_38);
 
     #[test]
     fn test_ret_c() {

@@ -92,6 +92,7 @@ pub enum InstructionType {
     SraR,
     SrlR,
     SwapR,
+    Halt,
 }
 
 pub enum Instruction {
@@ -146,6 +147,10 @@ pub enum Opcode {
 
     #[instruction(regs = ["HL", "BC"], instruction_type = "AddRrRr", len = 0, cycles = [8])]
     ADD_HL_BC = 0x09,
+
+    // TODO(alexyer): Proper stop implementation
+    #[instruction(instruction_type = "Halt", len = 0, cycles = [4])]
+    STOP = 0x10,
 
     #[instruction(regs = ["BC"], instruction_type = "DecRr", len = 0, cycles = [8])]
     DEC_BC = 0x0b,
@@ -459,6 +464,9 @@ pub enum Opcode {
     #[instruction(regs = ["HL", "L"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
     LD_IND_HL_L = 0x75,
 
+    #[instruction(instruction_type = "Halt", len = 0, cycles = [4])]
+    HALT = 0x76,
+
     #[instruction(regs = ["HL", "A"], instruction_type = "LdIndRrR", len = 0, cycles = [8])]
     LD_IND_HL_A = 0x77,
 
@@ -749,6 +757,9 @@ pub enum Opcode {
     #[instruction(instruction_type = "SbcD8", len = 1, cycles = [8])]
     SBC_D8 = 0xde,
 
+    #[instruction(instruction_type = "Rst", len = 0, cycles = [16])]
+    RST18 = 0xdf,
+
     #[instruction(regs = ["A"], instruction_type = "LdA8A", len = 1, cycles = [12])]
     LDH_A8_A = 0xe0,
 
@@ -764,6 +775,9 @@ pub enum Opcode {
     #[instruction(instruction_type = "AndD8", len = 1, cycles = [8])]
     AND_D8 = 0xe6,
 
+    #[instruction(instruction_type = "Rst", len = 0, cycles = [16])]
+    RST20 = 0xe7,
+
     #[instruction(instruction_type = "AddSpE8", len = 1, cycles = [16])]
     ADD_SP_E8 = 0xe8,
 
@@ -775,6 +789,9 @@ pub enum Opcode {
 
     #[instruction(instruction_type = "XorD8", len = 1, cycles = [8])]
     XOR_D8 = 0xee,
+
+    #[instruction(instruction_type = "Rst", len = 0, cycles = [16])]
+    RST28 = 0xef,
 
     #[instruction(regs = ["A"], instruction_type = "LdAA8", len = 1, cycles = [12])]
     LDH_A_A8 = 0xf0,
@@ -794,6 +811,9 @@ pub enum Opcode {
     #[instruction(instruction_type = "OrD8", len = 1, cycles = [8])]
     OR_D8 = 0xf6,
 
+    #[instruction(instruction_type = "Rst", len = 0, cycles = [16])]
+    RST30 = 0xf7,
+
     #[instruction(regs = ["HL", "SP"], instruction_type = "LdHLSPE8", len = 1, cycles = [12])]
     LD_HL_SP_E8 = 0xf8,
 
@@ -808,6 +828,9 @@ pub enum Opcode {
 
     #[instruction(instruction_type = "CpD8", len = 1, cycles = [8])]
     CP_D8 = 0xfe,
+
+    #[instruction(instruction_type = "Rst", len = 0, cycles = [16])]
+    RST38 = 0xff,
 }
 
 #[derive(Debug, Clone, Copy, TryFromPrimitive, InstructionImpl)]
