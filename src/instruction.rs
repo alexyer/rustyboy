@@ -71,6 +71,14 @@ pub enum InstructionType {
     Bit5R,
     Bit6R,
     Bit7R,
+    Res0R,
+    Res1R,
+    Res2R,
+    Res3R,
+    Res4R,
+    Res5R,
+    Res6R,
+    Res7R,
     RlR,
     Rlca,
     RlcR,
@@ -1137,4 +1145,172 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["A"], instruction_type = "Bit7R", len = 0, cycles = [12])]
     BIT7A = 0x7f,
+
+    #[instruction(regs = ["B"], instruction_type = "Res0R", len = 0, cycles = [12])]
+    RES0B = 0x80,
+
+    #[instruction(regs = ["C"], instruction_type = "Res0R", len = 0, cycles = [12])]
+    RES0C = 0x81,
+
+    #[instruction(regs = ["D"], instruction_type = "Res0R", len = 0, cycles = [12])]
+    RES0D = 0x82,
+
+    #[instruction(regs = ["E"], instruction_type = "Res0R", len = 0, cycles = [12])]
+    RES0E = 0x83,
+
+    #[instruction(regs = ["H"], instruction_type = "Res0R", len = 0, cycles = [12])]
+    RES0H = 0x84,
+
+    #[instruction(regs = ["L"], instruction_type = "Res0R", len = 0, cycles = [12])]
+    RES0L = 0x85,
+
+    #[instruction(regs = ["A"], instruction_type = "Res0R", len = 0, cycles = [12])]
+    RES0A = 0x87,
+
+    #[instruction(regs = ["B"], instruction_type = "Res1R", len = 0, cycles = [12])]
+    RES1B = 0x88,
+
+    #[instruction(regs = ["C"], instruction_type = "Res1R", len = 0, cycles = [12])]
+    RES1C = 0x89,
+
+    #[instruction(regs = ["D"], instruction_type = "Res1R", len = 0, cycles = [12])]
+    RES1D = 0x8a,
+
+    #[instruction(regs = ["E"], instruction_type = "Res1R", len = 0, cycles = [12])]
+    RES1E = 0x8b,
+
+    #[instruction(regs = ["H"], instruction_type = "Res1R", len = 0, cycles = [12])]
+    RES1H = 0x8c,
+
+    #[instruction(regs = ["L"], instruction_type = "Res1R", len = 0, cycles = [12])]
+    RES1L = 0x8d,
+
+    #[instruction(regs = ["A"], instruction_type = "Res1R", len = 0, cycles = [12])]
+    RES1A = 0x8f,
+
+    #[instruction(regs = ["B"], instruction_type = "Res2R", len = 0, cycles = [12])]
+    RES2B = 0x90,
+
+    #[instruction(regs = ["C"], instruction_type = "Res2R", len = 0, cycles = [12])]
+    RES2C = 0x91,
+
+    #[instruction(regs = ["D"], instruction_type = "Res2R", len = 0, cycles = [12])]
+    RES2D = 0x92,
+
+    #[instruction(regs = ["E"], instruction_type = "Res2R", len = 0, cycles = [12])]
+    RES2E = 0x93,
+
+    #[instruction(regs = ["H"], instruction_type = "Res2R", len = 0, cycles = [12])]
+    RES2H = 0x94,
+
+    #[instruction(regs = ["L"], instruction_type = "Res2R", len = 0, cycles = [12])]
+    RES2L = 0x95,
+
+    #[instruction(regs = ["A"], instruction_type = "Res2R", len = 0, cycles = [12])]
+    RES2A = 0x97,
+
+    #[instruction(regs = ["B"], instruction_type = "Res3R", len = 0, cycles = [12])]
+    RES3B = 0x98,
+
+    #[instruction(regs = ["C"], instruction_type = "Res3R", len = 0, cycles = [12])]
+    RES3C = 0x99,
+
+    #[instruction(regs = ["D"], instruction_type = "Res3R", len = 0, cycles = [12])]
+    RES3D = 0x9a,
+
+    #[instruction(regs = ["E"], instruction_type = "Res3R", len = 0, cycles = [12])]
+    RES3E = 0x9b,
+
+    #[instruction(regs = ["H"], instruction_type = "Res3R", len = 0, cycles = [12])]
+    RES3H = 0x9c,
+
+    #[instruction(regs = ["L"], instruction_type = "Res3R", len = 0, cycles = [12])]
+    RES3L = 0x9d,
+
+    #[instruction(regs = ["A"], instruction_type = "Res3R", len = 0, cycles = [12])]
+    RES3A = 0x9e,
+
+    #[instruction(regs = ["B"], instruction_type = "Res4R", len = 0, cycles = [12])]
+    RES4B = 0xa0,
+
+    #[instruction(regs = ["C"], instruction_type = "Res4R", len = 0, cycles = [12])]
+    RES4C = 0xa1,
+
+    #[instruction(regs = ["D"], instruction_type = "Res4R", len = 0, cycles = [12])]
+    RES4D = 0xa2,
+
+    #[instruction(regs = ["E"], instruction_type = "Res4R", len = 0, cycles = [12])]
+    RES4E = 0xa3,
+
+    #[instruction(regs = ["H"], instruction_type = "Res4R", len = 0, cycles = [12])]
+    RES4H = 0xa4,
+
+    #[instruction(regs = ["L"], instruction_type = "Res4R", len = 0, cycles = [12])]
+    RES4L = 0xa5,
+
+    #[instruction(regs = ["A"], instruction_type = "Res4R", len = 0, cycles = [12])]
+    RES4A = 0xa7,
+
+    #[instruction(regs = ["B"], instruction_type = "Res5R", len = 0, cycles = [12])]
+    RES5B = 0xa8,
+
+    #[instruction(regs = ["C"], instruction_type = "Res5R", len = 0, cycles = [12])]
+    RES5C = 0xa9,
+
+    #[instruction(regs = ["D"], instruction_type = "Res5R", len = 0, cycles = [12])]
+    RES5D = 0xaa,
+
+    #[instruction(regs = ["E"], instruction_type = "Res5R", len = 0, cycles = [12])]
+    RES5E = 0xab,
+
+    #[instruction(regs = ["H"], instruction_type = "Res5R", len = 0, cycles = [12])]
+    RES5H = 0xac,
+
+    #[instruction(regs = ["L"], instruction_type = "Res5R", len = 0, cycles = [12])]
+    RES5L = 0xad,
+
+    #[instruction(regs = ["A"], instruction_type = "Res5R", len = 0, cycles = [12])]
+    RES5A = 0xaf,
+
+    #[instruction(regs = ["B"], instruction_type = "Res6R", len = 0, cycles = [12])]
+    RES6B = 0xb0,
+
+    #[instruction(regs = ["C"], instruction_type = "Res6R", len = 0, cycles = [12])]
+    RES6C = 0xb1,
+
+    #[instruction(regs = ["D"], instruction_type = "Res6R", len = 0, cycles = [12])]
+    RES6D = 0xb2,
+
+    #[instruction(regs = ["E"], instruction_type = "Res6R", len = 0, cycles = [12])]
+    RES6E = 0xb3,
+
+    #[instruction(regs = ["H"], instruction_type = "Res6R", len = 0, cycles = [12])]
+    RES6H = 0xb4,
+
+    #[instruction(regs = ["L"], instruction_type = "Res6R", len = 0, cycles = [12])]
+    RES6L = 0xb5,
+
+    #[instruction(regs = ["A"], instruction_type = "Res6R", len = 0, cycles = [12])]
+    RES6A = 0xb7,
+
+    #[instruction(regs = ["B"], instruction_type = "Res7R", len = 0, cycles = [12])]
+    RES7B = 0xb8,
+
+    #[instruction(regs = ["C"], instruction_type = "Res7R", len = 0, cycles = [12])]
+    RES7C = 0xb9,
+
+    #[instruction(regs = ["D"], instruction_type = "Res7R", len = 0, cycles = [12])]
+    RES7D = 0xba,
+
+    #[instruction(regs = ["E"], instruction_type = "Res7R", len = 0, cycles = [12])]
+    RES7E = 0xbb,
+
+    #[instruction(regs = ["H"], instruction_type = "Res7R", len = 0, cycles = [12])]
+    RES7H = 0xbc,
+
+    #[instruction(regs = ["L"], instruction_type = "Res7R", len = 0, cycles = [12])]
+    RES7L = 0xbd,
+
+    #[instruction(regs = ["A"], instruction_type = "Res7R", len = 0, cycles = [12])]
+    RES7A = 0xbf,
 }

@@ -457,6 +457,14 @@ impl Cpu {
                     InstructionType::Bit5R => self.bit_r(regs[0].into(), 5),
                     InstructionType::Bit6R => self.bit_r(regs[0].into(), 6),
                     InstructionType::Bit7R => self.bit_r(regs[0].into(), 7),
+                    InstructionType::Res0R => self.res_r(regs[0].into(), 0),
+                    InstructionType::Res1R => self.res_r(regs[0].into(), 1),
+                    InstructionType::Res2R => self.res_r(regs[0].into(), 2),
+                    InstructionType::Res3R => self.res_r(regs[0].into(), 3),
+                    InstructionType::Res4R => self.res_r(regs[0].into(), 4),
+                    InstructionType::Res5R => self.res_r(regs[0].into(), 5),
+                    InstructionType::Res6R => self.res_r(regs[0].into(), 6),
+                    InstructionType::Res7R => self.res_r(regs[0].into(), 7),
                     InstructionType::RlcR => self.rlc_r(regs[0].into()),
                     InstructionType::RrcR => self.rrc_r(regs[0].into()),
                     InstructionType::SlaR => self.sla_r(regs[0].into()),
@@ -1011,6 +1019,62 @@ impl Cpu {
                     PrefixedOpcode::BIT7H => Some(PrefixedInstruction::bit7h(&[]).into()),
                     PrefixedOpcode::BIT7L => Some(PrefixedInstruction::bit7l(&[]).into()),
                     PrefixedOpcode::BIT7A => Some(PrefixedInstruction::bit7a(&[]).into()),
+                    PrefixedOpcode::RES0B => Some(PrefixedInstruction::res0b(&[]).into()),
+                    PrefixedOpcode::RES0C => Some(PrefixedInstruction::res0c(&[]).into()),
+                    PrefixedOpcode::RES0D => Some(PrefixedInstruction::res0d(&[]).into()),
+                    PrefixedOpcode::RES0E => Some(PrefixedInstruction::res0e(&[]).into()),
+                    PrefixedOpcode::RES0H => Some(PrefixedInstruction::res0h(&[]).into()),
+                    PrefixedOpcode::RES0L => Some(PrefixedInstruction::res0l(&[]).into()),
+                    PrefixedOpcode::RES0A => Some(PrefixedInstruction::res0a(&[]).into()),
+                    PrefixedOpcode::RES1B => Some(PrefixedInstruction::res1b(&[]).into()),
+                    PrefixedOpcode::RES1C => Some(PrefixedInstruction::res1c(&[]).into()),
+                    PrefixedOpcode::RES1D => Some(PrefixedInstruction::res1d(&[]).into()),
+                    PrefixedOpcode::RES1E => Some(PrefixedInstruction::res1e(&[]).into()),
+                    PrefixedOpcode::RES1H => Some(PrefixedInstruction::res1h(&[]).into()),
+                    PrefixedOpcode::RES1L => Some(PrefixedInstruction::res1l(&[]).into()),
+                    PrefixedOpcode::RES1A => Some(PrefixedInstruction::res1a(&[]).into()),
+                    PrefixedOpcode::RES2B => Some(PrefixedInstruction::res2b(&[]).into()),
+                    PrefixedOpcode::RES2C => Some(PrefixedInstruction::res2c(&[]).into()),
+                    PrefixedOpcode::RES2D => Some(PrefixedInstruction::res2d(&[]).into()),
+                    PrefixedOpcode::RES2E => Some(PrefixedInstruction::res2e(&[]).into()),
+                    PrefixedOpcode::RES2H => Some(PrefixedInstruction::res2h(&[]).into()),
+                    PrefixedOpcode::RES2L => Some(PrefixedInstruction::res2l(&[]).into()),
+                    PrefixedOpcode::RES2A => Some(PrefixedInstruction::res2a(&[]).into()),
+                    PrefixedOpcode::RES3B => Some(PrefixedInstruction::res3b(&[]).into()),
+                    PrefixedOpcode::RES3C => Some(PrefixedInstruction::res3c(&[]).into()),
+                    PrefixedOpcode::RES3D => Some(PrefixedInstruction::res3d(&[]).into()),
+                    PrefixedOpcode::RES3E => Some(PrefixedInstruction::res3e(&[]).into()),
+                    PrefixedOpcode::RES3H => Some(PrefixedInstruction::res3h(&[]).into()),
+                    PrefixedOpcode::RES3L => Some(PrefixedInstruction::res3l(&[]).into()),
+                    PrefixedOpcode::RES3A => Some(PrefixedInstruction::res3a(&[]).into()),
+                    PrefixedOpcode::RES4B => Some(PrefixedInstruction::res4b(&[]).into()),
+                    PrefixedOpcode::RES4C => Some(PrefixedInstruction::res4c(&[]).into()),
+                    PrefixedOpcode::RES4D => Some(PrefixedInstruction::res4d(&[]).into()),
+                    PrefixedOpcode::RES4E => Some(PrefixedInstruction::res4e(&[]).into()),
+                    PrefixedOpcode::RES4H => Some(PrefixedInstruction::res4h(&[]).into()),
+                    PrefixedOpcode::RES4L => Some(PrefixedInstruction::res4l(&[]).into()),
+                    PrefixedOpcode::RES4A => Some(PrefixedInstruction::res4a(&[]).into()),
+                    PrefixedOpcode::RES5B => Some(PrefixedInstruction::res5b(&[]).into()),
+                    PrefixedOpcode::RES5C => Some(PrefixedInstruction::res5c(&[]).into()),
+                    PrefixedOpcode::RES5D => Some(PrefixedInstruction::res5d(&[]).into()),
+                    PrefixedOpcode::RES5E => Some(PrefixedInstruction::res5e(&[]).into()),
+                    PrefixedOpcode::RES5H => Some(PrefixedInstruction::res5h(&[]).into()),
+                    PrefixedOpcode::RES5L => Some(PrefixedInstruction::res5l(&[]).into()),
+                    PrefixedOpcode::RES5A => Some(PrefixedInstruction::res5a(&[]).into()),
+                    PrefixedOpcode::RES6B => Some(PrefixedInstruction::res6b(&[]).into()),
+                    PrefixedOpcode::RES6C => Some(PrefixedInstruction::res6c(&[]).into()),
+                    PrefixedOpcode::RES6D => Some(PrefixedInstruction::res6d(&[]).into()),
+                    PrefixedOpcode::RES6E => Some(PrefixedInstruction::res6e(&[]).into()),
+                    PrefixedOpcode::RES6H => Some(PrefixedInstruction::res6h(&[]).into()),
+                    PrefixedOpcode::RES6L => Some(PrefixedInstruction::res6l(&[]).into()),
+                    PrefixedOpcode::RES6A => Some(PrefixedInstruction::res6a(&[]).into()),
+                    PrefixedOpcode::RES7B => Some(PrefixedInstruction::res7b(&[]).into()),
+                    PrefixedOpcode::RES7C => Some(PrefixedInstruction::res7c(&[]).into()),
+                    PrefixedOpcode::RES7D => Some(PrefixedInstruction::res7d(&[]).into()),
+                    PrefixedOpcode::RES7E => Some(PrefixedInstruction::res7e(&[]).into()),
+                    PrefixedOpcode::RES7H => Some(PrefixedInstruction::res7h(&[]).into()),
+                    PrefixedOpcode::RES7L => Some(PrefixedInstruction::res7l(&[]).into()),
+                    PrefixedOpcode::RES7A => Some(PrefixedInstruction::res7a(&[]).into()),
                     PrefixedOpcode::RR_B => Some(PrefixedInstruction::rr_b(&[]).into()),
                     PrefixedOpcode::RR_C => Some(PrefixedInstruction::rr_c(&[]).into()),
                     PrefixedOpcode::RR_D => Some(PrefixedInstruction::rr_d(&[]).into()),
@@ -1631,6 +1695,11 @@ impl Cpu {
         } else {
             self.set_z();
         }
+    }
+
+    fn res_r(&mut self, reg: Reg, n: u8) {
+        let val = self.regs.read_reg(reg) & !(1 << n);
+        self.regs.write_reg(reg, val);
     }
 
     fn rl_r(&mut self, reg: Reg) {
@@ -2570,6 +2639,24 @@ mod tests {
                 assert!(cpu.z());
                 assert!(!cpu.n());
                 assert!(cpu.h());
+            }
+        };
+    }
+
+    macro_rules! test_res {
+        ($r:expr, $mnemonic:expr, $i:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.regs.write_reg($r, 0 | 1 << $i);
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
+                assert_eq!(cpu.regs.read_reg($r), 0);
             }
         };
     }
@@ -3564,6 +3651,70 @@ mod tests {
     test_bit!(Reg::H, &[0xcb, 0x7c], 7, test_bit7h);
     test_bit!(Reg::L, &[0xcb, 0x7d], 7, test_bit7l);
     test_bit!(Reg::A, &[0xcb, 0x7f], 7, test_bit7a);
+
+    test_res!(Reg::B, &[0xcb, 0x80], 0, test_res0b);
+    test_res!(Reg::C, &[0xcb, 0x81], 0, test_res0c);
+    test_res!(Reg::D, &[0xcb, 0x82], 0, test_res0d);
+    test_res!(Reg::E, &[0xcb, 0x83], 0, test_res0e);
+    test_res!(Reg::H, &[0xcb, 0x84], 0, test_res0h);
+    test_res!(Reg::L, &[0xcb, 0x85], 0, test_res0l);
+    test_res!(Reg::A, &[0xcb, 0x87], 0, test_res0a);
+
+    test_res!(Reg::B, &[0xcb, 0x88], 1, test_res1b);
+    test_res!(Reg::C, &[0xcb, 0x89], 1, test_res1c);
+    test_res!(Reg::D, &[0xcb, 0x8a], 1, test_res1d);
+    test_res!(Reg::E, &[0xcb, 0x8b], 1, test_res1e);
+    test_res!(Reg::H, &[0xcb, 0x8c], 1, test_res1h);
+    test_res!(Reg::L, &[0xcb, 0x8d], 1, test_res1l);
+    test_res!(Reg::A, &[0xcb, 0x8f], 1, test_res1a);
+
+    test_res!(Reg::B, &[0xcb, 0x90], 2, test_res2b);
+    test_res!(Reg::C, &[0xcb, 0x91], 2, test_res2c);
+    test_res!(Reg::D, &[0xcb, 0x92], 2, test_res2d);
+    test_res!(Reg::E, &[0xcb, 0x93], 2, test_res2e);
+    test_res!(Reg::H, &[0xcb, 0x94], 2, test_res2h);
+    test_res!(Reg::L, &[0xcb, 0x95], 2, test_res2l);
+    test_res!(Reg::A, &[0xcb, 0x97], 2, test_res2a);
+
+    test_res!(Reg::B, &[0xcb, 0x98], 3, test_res3b);
+    test_res!(Reg::C, &[0xcb, 0x99], 3, test_res3c);
+    test_res!(Reg::D, &[0xcb, 0x9a], 3, test_res3d);
+    test_res!(Reg::E, &[0xcb, 0x9b], 3, test_res3e);
+    test_res!(Reg::H, &[0xcb, 0x9c], 3, test_res3h);
+    test_res!(Reg::L, &[0xcb, 0x9d], 3, test_res3l);
+    test_res!(Reg::A, &[0xcb, 0x9e], 3, test_res3a);
+
+    test_res!(Reg::B, &[0xcb, 0xa0], 4, test_res4b);
+    test_res!(Reg::C, &[0xcb, 0xa1], 4, test_res4c);
+    test_res!(Reg::D, &[0xcb, 0xa2], 4, test_res4d);
+    test_res!(Reg::E, &[0xcb, 0xa3], 4, test_res4e);
+    test_res!(Reg::H, &[0xcb, 0xa4], 4, test_res4h);
+    test_res!(Reg::L, &[0xcb, 0xa5], 4, test_res4l);
+    test_res!(Reg::A, &[0xcb, 0xa7], 4, test_res4a);
+
+    test_res!(Reg::B, &[0xcb, 0xa8], 5, test_res5b);
+    test_res!(Reg::C, &[0xcb, 0xa9], 5, test_res5c);
+    test_res!(Reg::D, &[0xcb, 0xaa], 5, test_res5d);
+    test_res!(Reg::E, &[0xcb, 0xab], 5, test_res5e);
+    test_res!(Reg::H, &[0xcb, 0xac], 5, test_res5h);
+    test_res!(Reg::L, &[0xcb, 0xad], 5, test_res5l);
+    test_res!(Reg::A, &[0xcb, 0xaf], 5, test_res5a);
+
+    test_res!(Reg::B, &[0xcb, 0xb0], 6, test_res6b);
+    test_res!(Reg::C, &[0xcb, 0xb1], 6, test_res6c);
+    test_res!(Reg::D, &[0xcb, 0xb2], 6, test_res6d);
+    test_res!(Reg::E, &[0xcb, 0xb3], 6, test_res6e);
+    test_res!(Reg::H, &[0xcb, 0xb4], 6, test_res6h);
+    test_res!(Reg::L, &[0xcb, 0xb5], 6, test_res6l);
+    test_res!(Reg::A, &[0xcb, 0xb7], 6, test_res6a);
+
+    test_res!(Reg::B, &[0xcb, 0xb8], 7, test_res7b);
+    test_res!(Reg::C, &[0xcb, 0xb9], 7, test_res7c);
+    test_res!(Reg::D, &[0xcb, 0xba], 7, test_res7d);
+    test_res!(Reg::E, &[0xcb, 0xbb], 7, test_res7e);
+    test_res!(Reg::H, &[0xcb, 0xbc], 7, test_res7h);
+    test_res!(Reg::L, &[0xcb, 0xbd], 7, test_res7l);
+    test_res!(Reg::A, &[0xcb, 0xbf], 7, test_res7a);
 
     test_rlc_r!(Reg::A, &[0xcb, 0x07], test_rlc_a);
     test_rlc_r!(Reg::B, &[0xcb, 0x00], test_rlc_b);
