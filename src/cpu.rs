@@ -404,6 +404,7 @@ impl Cpu {
                     InstructionType::SbcD8 => self.sbc_d8(&prepare_data!(instruction, 1)),
                     InstructionType::SubD8 => self.sub_d8(&prepare_data!(instruction, 1)),
                     InstructionType::SubR => self.sub_r(regs[0].into()),
+                    InstructionType::SubIndHl => self.sub_ind_hl(mmu),
                     InstructionType::OrR => self.or_r(regs[0].into()),
                     InstructionType::OrAIndHl => self.or_a_ind_hl(mmu),
                     InstructionType::OrD8 => self.or_d8(&prepare_data!(instruction, 1)),
@@ -492,6 +493,10 @@ impl Cpu {
                     InstructionType::Bit5R => self.bit_r(regs[0].into(), 5),
                     InstructionType::Bit6R => self.bit_r(regs[0].into(), 6),
                     InstructionType::Bit7R => self.bit_r(regs[0].into(), 7),
+                    InstructionType::BitIndHl => match instruction.opcode() {
+                        PrefixedOpcode::BIT7_IND_HL => self.bit_ind_hl(7, mmu),
+                        _ => unreachable!(),
+                    },
                     InstructionType::Res0R => self.res_r(regs[0].into(), 0),
                     InstructionType::Res1R => self.res_r(regs[0].into(), 1),
                     InstructionType::Res2R => self.res_r(regs[0].into(), 2),
@@ -811,6 +816,7 @@ impl Cpu {
             Opcode::SUB_E => Some(NormalInstruction::sub_e(&[]).into()),
             Opcode::SUB_H => Some(NormalInstruction::sub_h(&[]).into()),
             Opcode::SUB_L => Some(NormalInstruction::sub_l(&[]).into()),
+            Opcode::SUB_IND_HL => Some(NormalInstruction::sub_ind_hl(&[]).into()),
             Opcode::LD_HL_D16 => {
                 let data = mmu.read_slice(pc as usize, 2);
                 self.regs.write_reg16(Reg16::PC, pc + 2);
@@ -1066,6 +1072,9 @@ impl Cpu {
                     PrefixedOpcode::BIT7H => Some(PrefixedInstruction::bit7h(&[]).into()),
                     PrefixedOpcode::BIT7L => Some(PrefixedInstruction::bit7l(&[]).into()),
                     PrefixedOpcode::BIT7A => Some(PrefixedInstruction::bit7a(&[]).into()),
+                    PrefixedOpcode::BIT7_IND_HL => {
+                        Some(PrefixedInstruction::bit7_ind_hl(&[]).into())
+                    }
                     PrefixedOpcode::RES0B => Some(PrefixedInstruction::res0b(&[]).into()),
                     PrefixedOpcode::RES0C => Some(PrefixedInstruction::res0c(&[]).into()),
                     PrefixedOpcode::RES0D => Some(PrefixedInstruction::res0d(&[]).into()),
@@ -1645,6 +1654,15 @@ impl Cpu {
         self.regs.write_reg(Reg::A, val);
     }
 
+    fn sub_ind_hl(&mut self, mmu: &Mmu) {
+        let val = self.sub8(
+            self.regs.read_reg(Reg::A),
+            mmu.read_byte(self.regs.read_reg16(Reg16::HL) as usize),
+        );
+
+        self.regs.write_reg(Reg::A, val);
+    }
+
     fn sub_r(&mut self, reg: Reg) {
         let val = self.sub8(self.regs.read_reg(Reg::A), self.regs.read_reg(reg));
         self.regs.write_reg(Reg::A, val);
@@ -1752,6 +1770,17 @@ impl Cpu {
             0xff00 + self.regs.read_reg(Reg::C) as usize,
             self.regs.read_reg(Reg::A),
         );
+    }
+
+    fn bit_ind_hl(&mut self, n: u8, mmu: &Mmu) {
+        self.clear_n();
+        self.set_h();
+
+        if mmu.read_byte(self.regs.read_reg16(Reg16::HL) as usize) & 1 << n != 0 {
+            self.clear_z();
+        } else {
+            self.set_z();
+        }
     }
 
     fn bit_r(&mut self, reg: Reg, n: u8) {
@@ -2711,6 +2740,39 @@ mod tests {
         };
     }
 
+    macro_rules! test_bit_ind_hl {
+        ($mnemonic:expr, $i:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.regs.write_reg16(Reg16::HL, 0xdead);
+                mmu.write_byte(0xdead, 1 | 1 << $i);
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
+                assert!(!cpu.z());
+                assert!(!cpu.n());
+                assert!(cpu.h());
+
+                cpu.regs.write_reg16(Reg16::PC, 0);
+                mmu.write_byte(0xdead, 1 & !(1 << $i));
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
+                assert!(cpu.z());
+                assert!(!cpu.n());
+                assert!(cpu.h());
+            }
+        };
+    }
+
     macro_rules! test_res {
         ($r:expr, $mnemonic:expr, $i:expr, $name:ident) => {
             #[test]
@@ -3272,6 +3334,25 @@ mod tests {
     }
 
     #[test]
+    fn test_sub_ind_hl() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.regs.write_reg(Reg::A, 10);
+        cpu.regs.write_reg16(Reg16::HL, 1);
+        mmu.write_slice(&[0xae, 0xa], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.regs.read_reg16(Reg16::PC), 1);
+        assert_eq!(cpu.regs.read_reg(Reg::A), 0);
+        assert!(cpu.z());
+        assert!(!cpu.n());
+        assert!(!cpu.h());
+        assert!(!cpu.c());
+    }
+
+    #[test]
     fn test_xor_a_d8() {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
@@ -3761,6 +3842,8 @@ mod tests {
     test_bit!(Reg::H, &[0xcb, 0x7c], 7, test_bit7h);
     test_bit!(Reg::L, &[0xcb, 0x7d], 7, test_bit7l);
     test_bit!(Reg::A, &[0xcb, 0x7f], 7, test_bit7a);
+
+    test_bit_ind_hl!(&[0xcb, 0x7e], 7, test_bit7_ind_hl);
 
     test_res!(Reg::B, &[0xcb, 0x80], 0, test_res0b);
     test_res!(Reg::C, &[0xcb, 0x81], 0, test_res0c);

@@ -47,6 +47,7 @@ pub enum InstructionType {
     SbcD8,
     SubD8,
     SubR,
+    SubIndHl,
     OrR,
     OrAIndHl,
     OrD8,
@@ -73,6 +74,7 @@ pub enum InstructionType {
     Bit5R,
     Bit6R,
     Bit7R,
+    BitIndHl,
     Res0R,
     Res1R,
     Res2R,
@@ -567,6 +569,9 @@ pub enum Opcode {
 
     #[instruction(regs = ["L"], instruction_type = "SubR", len = 0, cycles = [4])]
     SUB_L = 0x95,
+
+    #[instruction(regs = ["A", "HL"], instruction_type = "SubIndHl", len = 0, cycles = [8])]
+    SUB_IND_HL = 0x96,
 
     #[instruction(regs = ["A"], instruction_type = "SubR", len = 0, cycles = [4])]
     SUB_A = 0x97,
@@ -1182,6 +1187,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Bit7R", len = 0, cycles = [12])]
     BIT7L = 0x7d,
+
+    #[instruction(regs = ["HL"], instruction_type = "BitIndHl", len = 0, cycles = [12])]
+    BIT7_IND_HL = 0x7e,
 
     #[instruction(regs = ["A"], instruction_type = "Bit7R", len = 0, cycles = [12])]
     BIT7A = 0x7f,

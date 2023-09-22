@@ -157,7 +157,7 @@ impl Mmu {
             // TAC
             0x07 => self.io[addr] = data,
             // TODO(alexyer): implement sound.
-            addr if addr >= 0x10 && addr <= 0x26 => (),
+            addr if addr >= 0x10 && addr < 0x40 => (),
             // LCDC
             0x40 => self.io[addr] = data,
             // STAT
@@ -208,7 +208,7 @@ impl Mmu {
             // TAC
             0x07 => self.io[addr],
             // TODO(alexyer): implement sound.
-            addr if addr >= 0x10 && addr <= 0x26 => self.io[addr],
+            addr if addr >= 0x10 && addr < 0x40 => self.io[addr],
             // LCDC
             0x40 => self.io[addr],
             // STAT
