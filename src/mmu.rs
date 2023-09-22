@@ -144,8 +144,10 @@ impl Mmu {
         }
 
         match addr {
+            // P1/JOYP
+            0x00 => self.io[addr] = data,
             // TODO(alexyer): Remove later. Currently it's used to log test rom output.
-            addr if addr <= 0x02 => print!("{}", data as char),
+            addr if addr > 0 && addr <= 0x02 => print!("{}", data as char),
             // DIV
             0x04 => self.io[addr] = data,
             // TIMA
@@ -195,6 +197,8 @@ impl Mmu {
 
     fn io_read_byte(&self, addr: usize) -> u8 {
         match addr {
+            // P1/JOYP
+            0x00 => self.io[addr],
             // DIV
             0x04 => self.io[addr],
             // TIMA

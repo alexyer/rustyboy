@@ -362,6 +362,7 @@ impl Cpu {
                     InstructionType::LdAA8 => self.ldh_a_a8(&prepare_data!(instruction, 1), mmu),
                     InstructionType::LdA8A => self.ldh_a8_a(&prepare_data!(instruction, 1), mmu),
                     InstructionType::LdAIndC => self.ld_r_ind_r(Reg::A, Reg::C, mmu),
+                    InstructionType::LdRIndHlDec => self.ld_r_ind_hl_dec(regs[0].into(), mmu),
                     InstructionType::LdRIndRr => {
                         self.ld_r_ind_rr(regs[0].into(), regs[1].into(), mmu)
                     }
@@ -386,6 +387,7 @@ impl Cpu {
                     },
                     InstructionType::IncR => self.inc_r(regs[0].into()),
                     InstructionType::IncRr => self.inc_rr(regs[0].into()),
+                    InstructionType::IncIndHl => self.inc_ind_hl(mmu),
                     InstructionType::DecR => self.dec_r(regs[0].into()),
                     InstructionType::DecRr => self.dec_rr(regs[0].into()),
                     InstructionType::DecIndHl => self.dec_ind_hl(mmu),
@@ -663,6 +665,7 @@ impl Cpu {
             Opcode::LD_L_E => Some(NormalInstruction::ld_l_e(&[]).into()),
             Opcode::LD_L_H => Some(NormalInstruction::ld_l_h(&[]).into()),
             Opcode::LD_L_L => Some(NormalInstruction::ld_l_l(&[]).into()),
+            Opcode::LD_A_IND_HL_INC => Some(NormalInstruction::ld_a_ind_hl_inc(&[]).into()),
             Opcode::PUSH_AF => Some(NormalInstruction::push_af(&[]).into()),
             Opcode::PUSH_BC => Some(NormalInstruction::push_bc(&[]).into()),
             Opcode::PUSH_DE => Some(NormalInstruction::push_de(&[]).into()),
@@ -682,6 +685,7 @@ impl Cpu {
             Opcode::INC_SP => Some(NormalInstruction::inc_sp(&[]).into()),
             Opcode::INC_H => Some(NormalInstruction::inc_h(&[]).into()),
             Opcode::INC_L => Some(NormalInstruction::inc_l(&[]).into()),
+            Opcode::INC_IND_HL => Some(NormalInstruction::inc_ind_hl(&[]).into()),
             Opcode::DAA => Some(NormalInstruction::daa(&[]).into()),
             Opcode::DEC_A => Some(NormalInstruction::dec_a(&[]).into()),
             Opcode::DEC_B => Some(NormalInstruction::dec_b(&[]).into()),
@@ -852,7 +856,8 @@ impl Cpu {
             Opcode::LD_E_IND_HL => Some(NormalInstruction::ld_e_ind_hl(&[]).into()),
             Opcode::LD_H_IND_HL => Some(NormalInstruction::ld_h_ind_hl(&[]).into()),
             Opcode::LD_L_IND_HL => Some(NormalInstruction::ld_l_ind_hl(&[]).into()),
-            Opcode::LD_A_IND_HL_INC => Some(NormalInstruction::ld_a_ind_hl_inc(&[]).into()),
+            Opcode::LD_A_IND_HL_DEC => Some(NormalInstruction::ld_a_ind_hl_dec(&[]).into()),
+            Opcode::LD_A_IND_BC => Some(NormalInstruction::ld_a_ind_bc(&[]).into()),
             Opcode::JR_R8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
@@ -1676,6 +1681,17 @@ impl Cpu {
         self.regs.dec_reg16(reg);
     }
 
+    fn inc_ind_hl(&mut self, mmu: &mut Mmu) {
+        let addr = self.regs.read_reg16(Reg16::HL) as usize;
+        let val = mmu.read_byte(addr).wrapping_add(1);
+
+        mmu.write_byte(addr, val);
+
+        self.check_z(val);
+        self.clear_n();
+        self.set_h_to(val & 0xf == 0xf);
+    }
+
     fn dec_ind_hl(&mut self, mmu: &mut Mmu) {
         let addr = self.regs.read_reg16(Reg16::HL) as usize;
         let val = mmu.read_byte(addr).wrapping_sub(1);
@@ -1685,6 +1701,12 @@ impl Cpu {
         self.check_z(val);
         self.set_n();
         self.set_h_to(val & 0xf == 0xf);
+    }
+
+    fn ld_r_ind_hl_dec(&mut self, reg: Reg, mmu: &mut Mmu) {
+        self.regs
+            .write_reg(reg, mmu.read_byte(self.regs.read_reg16(Reg16::HL) as usize));
+        self.regs.dec_reg16(Reg16::HL);
     }
 
     fn ld_a_ind_hl_inc(&mut self, mmu: &mut Mmu) {
@@ -3558,6 +3580,23 @@ mod tests {
     }
 
     #[test]
+    fn test_inc_ind_hl() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.regs.write_reg16(Reg16::HL, 1);
+        mmu.write_slice(&[0x34, 0xa], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 12);
+        assert_eq!(mmu.read_byte(1), 11);
+        assert!(!cpu.n());
+        assert!(!cpu.z());
+        assert!(!cpu.c());
+        assert!(!cpu.h());
+    }
+
+    #[test]
     fn test_ld_ind_hl_dec_a() {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
@@ -3623,6 +3662,8 @@ mod tests {
     test_ld_r_ind_rr!(Reg16::HL, Reg::H, &[0x66, 0xff], test_ld_h_ind_hl);
     test_ld_r_ind_rr!(Reg16::HL, Reg::L, &[0x6e, 0xff], test_ld_l_ind_hl);
 
+    test_ld_r_ind_rr!(Reg16::BC, Reg::A, &[0x0a, 0xff], test_ld_a_ind_bc);
+
     test_ld_r_ind_r!(Reg::C, Reg::A, &[0xf2], test_ld_a_ind_c);
 
     #[test]
@@ -3639,6 +3680,22 @@ mod tests {
         assert_eq!(cpu.regs.read_reg16(Reg16::PC), 1);
         assert_eq!(cpu.regs.read_reg(Reg::A), 0xff);
         assert_eq!(cpu.regs.read_reg16(Reg16::HL), 2);
+    }
+
+    #[test]
+    fn test_ld_a_ind_hl_dec() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.regs.write_reg(Reg::A, 0);
+        cpu.regs.write_reg16(Reg16::HL, 1);
+        mmu.write_slice(&[0x3a, 0xff], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.regs.read_reg16(Reg16::PC), 1);
+        assert_eq!(cpu.regs.read_reg(Reg::A), 0xff);
+        assert_eq!(cpu.regs.read_reg16(Reg16::HL), 0);
     }
 
     test_bit!(Reg::B, &[0xcb, 0x40], 0, test_bit0b);

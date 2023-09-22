@@ -16,6 +16,7 @@ pub enum InstructionType {
     LdAIndC,
     LdRIndRr,
     LdIndRrR,
+    LdRIndHlDec,
     PushRr,
     PopRr,
     LdA16A,
@@ -29,6 +30,7 @@ pub enum InstructionType {
     LdRrRr,
     IncR,
     IncRr,
+    IncIndHl,
     DecR,
     DecRr,
     DecIndHl,
@@ -147,6 +149,9 @@ pub enum Opcode {
 
     #[instruction(regs = ["HL", "BC"], instruction_type = "AddRrRr", len = 0, cycles = [8])]
     ADD_HL_BC = 0x09,
+
+    #[instruction(regs = ["A", "BC"], instruction_type = "LdRIndRr", len = 0, cycles = [8])]
+    LD_A_IND_BC = 0x0a,
 
     // TODO(alexyer): Proper stop implementation
     #[instruction(instruction_type = "Halt", len = 0, cycles = [4])]
@@ -272,6 +277,9 @@ pub enum Opcode {
     #[instruction(regs = ["SP"], instruction_type = "IncRr", len = 0, cycles = [8])]
     INC_SP = 0x33,
 
+    #[instruction(regs = ["HL"], instruction_type = "IncIndHl", len = 0, cycles = [12])]
+    INC_IND_HL = 0x34,
+
     #[instruction(regs = ["HL"], instruction_type = "DecIndHl", len = 0, cycles = [12])]
     DEC_IND_HL = 0x35,
 
@@ -286,6 +294,9 @@ pub enum Opcode {
 
     #[instruction(regs = ["HL", "SP"], instruction_type = "AddRrRr", len = 0, cycles = [8])]
     ADD_HL_SP = 0x39,
+
+    #[instruction(regs = ["A", "HL"], instruction_type = "LdRIndHlDec", len = 0, cycles = [8])]
+    LD_A_IND_HL_DEC = 0x3a,
 
     #[instruction(regs = ["SP"], instruction_type = "DecRr", len = 0, cycles = [8])]
     DEC_SP = 0x3b,
