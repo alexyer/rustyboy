@@ -83,6 +83,14 @@ pub enum InstructionType {
     Res5R,
     Res6R,
     Res7R,
+    Set0R,
+    Set1R,
+    Set2R,
+    Set3R,
+    Set4R,
+    Set5R,
+    Set6R,
+    Set7R,
     RlR,
     Rlca,
     RlcR,
@@ -1361,4 +1369,172 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["A"], instruction_type = "Res7R", len = 0, cycles = [12])]
     RES7A = 0xbf,
+
+    #[instruction(regs = ["B"], instruction_type = "Set0R", len = 0, cycles = [12])]
+    SET0B = 0xc0,
+
+    #[instruction(regs = ["C"], instruction_type = "Set0R", len = 0, cycles = [12])]
+    SET0C = 0xc1,
+
+    #[instruction(regs = ["D"], instruction_type = "Set0R", len = 0, cycles = [12])]
+    SET0D = 0xc2,
+
+    #[instruction(regs = ["E"], instruction_type = "Set0R", len = 0, cycles = [12])]
+    SET0E = 0xc3,
+
+    #[instruction(regs = ["H"], instruction_type = "Set0R", len = 0, cycles = [12])]
+    SET0H = 0xc4,
+
+    #[instruction(regs = ["L"], instruction_type = "Set0R", len = 0, cycles = [12])]
+    SET0L = 0xc5,
+
+    #[instruction(regs = ["A"], instruction_type = "Set0R", len = 0, cycles = [12])]
+    SET0A = 0xc7,
+
+    #[instruction(regs = ["B"], instruction_type = "Set1R", len = 0, cycles = [12])]
+    SET1B = 0xc8,
+
+    #[instruction(regs = ["C"], instruction_type = "Set1R", len = 0, cycles = [12])]
+    SET1C = 0xc9,
+
+    #[instruction(regs = ["D"], instruction_type = "Set1R", len = 0, cycles = [12])]
+    SET1D = 0xca,
+
+    #[instruction(regs = ["E"], instruction_type = "Set1R", len = 0, cycles = [12])]
+    SET1E = 0xcb,
+
+    #[instruction(regs = ["H"], instruction_type = "Set1R", len = 0, cycles = [12])]
+    SET1H = 0xcc,
+
+    #[instruction(regs = ["L"], instruction_type = "Set1R", len = 0, cycles = [12])]
+    SET1L = 0xcd,
+
+    #[instruction(regs = ["A"], instruction_type = "Set1R", len = 0, cycles = [12])]
+    SET1A = 0xcf,
+
+    #[instruction(regs = ["B"], instruction_type = "Set2R", len = 0, cycles = [12])]
+    SET2B = 0xd0,
+
+    #[instruction(regs = ["C"], instruction_type = "Set2R", len = 0, cycles = [12])]
+    SET2C = 0xd1,
+
+    #[instruction(regs = ["D"], instruction_type = "Set2R", len = 0, cycles = [12])]
+    SET2D = 0xd2,
+
+    #[instruction(regs = ["E"], instruction_type = "Set2R", len = 0, cycles = [12])]
+    SET2E = 0xd3,
+
+    #[instruction(regs = ["H"], instruction_type = "Set2R", len = 0, cycles = [12])]
+    SET2H = 0xd4,
+
+    #[instruction(regs = ["L"], instruction_type = "Set2R", len = 0, cycles = [12])]
+    SET2L = 0xd5,
+
+    #[instruction(regs = ["A"], instruction_type = "Set2R", len = 0, cycles = [12])]
+    SET2A = 0xd7,
+
+    #[instruction(regs = ["B"], instruction_type = "Set3R", len = 0, cycles = [12])]
+    SET3B = 0xd8,
+
+    #[instruction(regs = ["C"], instruction_type = "Set3R", len = 0, cycles = [12])]
+    SET3C = 0xd9,
+
+    #[instruction(regs = ["D"], instruction_type = "Set3R", len = 0, cycles = [12])]
+    SET3D = 0xda,
+
+    #[instruction(regs = ["E"], instruction_type = "Set3R", len = 0, cycles = [12])]
+    SET3E = 0xdb,
+
+    #[instruction(regs = ["H"], instruction_type = "Set3R", len = 0, cycles = [12])]
+    SET3H = 0xdc,
+
+    #[instruction(regs = ["L"], instruction_type = "Set3R", len = 0, cycles = [12])]
+    SET3L = 0xdd,
+
+    #[instruction(regs = ["A"], instruction_type = "Set3R", len = 0, cycles = [12])]
+    SET3A = 0xde,
+
+    #[instruction(regs = ["B"], instruction_type = "Set4R", len = 0, cycles = [12])]
+    SET4B = 0xe0,
+
+    #[instruction(regs = ["C"], instruction_type = "Set4R", len = 0, cycles = [12])]
+    SET4C = 0xe1,
+
+    #[instruction(regs = ["D"], instruction_type = "Set4R", len = 0, cycles = [12])]
+    SET4D = 0xe2,
+
+    #[instruction(regs = ["E"], instruction_type = "Set4R", len = 0, cycles = [12])]
+    SET4E = 0xe3,
+
+    #[instruction(regs = ["H"], instruction_type = "Set4R", len = 0, cycles = [12])]
+    SET4H = 0xe4,
+
+    #[instruction(regs = ["L"], instruction_type = "Set4R", len = 0, cycles = [12])]
+    SET4L = 0xe5,
+
+    #[instruction(regs = ["A"], instruction_type = "Set4R", len = 0, cycles = [12])]
+    SET4A = 0xe7,
+
+    #[instruction(regs = ["B"], instruction_type = "Set5R", len = 0, cycles = [12])]
+    SET5B = 0xe8,
+
+    #[instruction(regs = ["C"], instruction_type = "Set5R", len = 0, cycles = [12])]
+    SET5C = 0xe9,
+
+    #[instruction(regs = ["D"], instruction_type = "Set5R", len = 0, cycles = [12])]
+    SET5D = 0xea,
+
+    #[instruction(regs = ["E"], instruction_type = "Set5R", len = 0, cycles = [12])]
+    SET5E = 0xeb,
+
+    #[instruction(regs = ["H"], instruction_type = "Set5R", len = 0, cycles = [12])]
+    SET5H = 0xec,
+
+    #[instruction(regs = ["L"], instruction_type = "Set5R", len = 0, cycles = [12])]
+    SET5L = 0xed,
+
+    #[instruction(regs = ["A"], instruction_type = "Set5R", len = 0, cycles = [12])]
+    SET5A = 0xef,
+
+    #[instruction(regs = ["B"], instruction_type = "Set6R", len = 0, cycles = [12])]
+    SET6B = 0xf0,
+
+    #[instruction(regs = ["C"], instruction_type = "Set6R", len = 0, cycles = [12])]
+    SET6C = 0xf1,
+
+    #[instruction(regs = ["D"], instruction_type = "Set6R", len = 0, cycles = [12])]
+    SET6D = 0xf2,
+
+    #[instruction(regs = ["E"], instruction_type = "Set6R", len = 0, cycles = [12])]
+    SET6E = 0xf3,
+
+    #[instruction(regs = ["H"], instruction_type = "Set6R", len = 0, cycles = [12])]
+    SET6H = 0xf4,
+
+    #[instruction(regs = ["L"], instruction_type = "Set6R", len = 0, cycles = [12])]
+    SET6L = 0xf5,
+
+    #[instruction(regs = ["A"], instruction_type = "Set6R", len = 0, cycles = [12])]
+    SET6A = 0xf7,
+
+    #[instruction(regs = ["B"], instruction_type = "Set7R", len = 0, cycles = [12])]
+    SET7B = 0xf8,
+
+    #[instruction(regs = ["C"], instruction_type = "Set7R", len = 0, cycles = [12])]
+    SET7C = 0xf9,
+
+    #[instruction(regs = ["D"], instruction_type = "Set7R", len = 0, cycles = [12])]
+    SET7D = 0xfa,
+
+    #[instruction(regs = ["E"], instruction_type = "Set7R", len = 0, cycles = [12])]
+    SET7E = 0xfb,
+
+    #[instruction(regs = ["H"], instruction_type = "Set7R", len = 0, cycles = [12])]
+    SET7H = 0xfc,
+
+    #[instruction(regs = ["L"], instruction_type = "Set7R", len = 0, cycles = [12])]
+    SET7L = 0xfd,
+
+    #[instruction(regs = ["A"], instruction_type = "Set7R", len = 0, cycles = [12])]
+    SET7A = 0xff,
 }
