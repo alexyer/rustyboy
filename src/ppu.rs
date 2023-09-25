@@ -26,8 +26,8 @@ const LCD_STATUS_ADDRESS: usize = 0xff41;
 
 const SCY: usize = 0xff42;
 const SCX: usize = 0xff43;
-const _WY: usize = 0xff4a;
-const _WX: usize = 0xff4b;
+const WY: usize = 0xff4a;
+const WX: usize = 0xff4b;
 
 const LY_ADDRESS: usize = 0xff44;
 const LYC_ADDRESS: usize = 0xff45;
@@ -62,17 +62,6 @@ pub enum Color {
     LightGray,
     DarkGray,
     Black,
-}
-
-impl Color {
-    pub fn as_u8(&self) -> u8 {
-        match self {
-            Color::White => 0,
-            Color::LightGray => 1,
-            Color::DarkGray => 2,
-            Color::Black => 3,
-        }
-    }
 }
 
 impl From<u8> for Color {
@@ -318,7 +307,7 @@ impl Ppu {
         }
 
         if self.window_enabled(mmu) {
-            todo!()
+            self.draw_window_line(mmu, current_line);
         }
     }
 
@@ -422,7 +411,6 @@ impl Ppu {
         Self::is_on_screen_x(x) && Self::is_on_screen_y(y)
     }
 
-    #[allow(overflowing_literals)]
     fn draw_bg_line(&mut self, mmu: &Mmu, current_line: u8) {
         let use_tile_set_zero = self.bg_window_tile_data(mmu);
         let use_tile_map_zero = !self.bg_tile_map(mmu);
@@ -474,9 +462,71 @@ impl Ppu {
                 .wrapping_add(tile_data_line_offset as u16)
                 as usize;
 
-            if tile_line_data_start_address < 0x8000 && tile_data_line_offset >= 0x9000 {
-                println!("{tile_line_data_start_address:x}");
-            }
+            // TODO: optimize
+            let pixels_1 = mmu.read_byte(tile_line_data_start_address);
+            let pixels_2 = mmu.read_byte(tile_line_data_start_address + 1);
+
+            let pixel_color = self.get_pixel_from_line(pixels_1, pixels_2, tile_pixel_x);
+
+            let screen_color = palette.get_color(pixel_color);
+
+            self.buffer.set_pixel(screen_x, screen_y, screen_color);
+        }
+    }
+
+    fn draw_window_line(&mut self, mmu: &Mmu, current_line: u8) {
+        let use_tile_set_zero = self.bg_window_tile_data(mmu);
+        let use_tile_map_zero = !self.bg_tile_map(mmu);
+
+        let palette = self.load_palette(mmu, BGP_ADDRESS);
+
+        let tileset_address = if use_tile_set_zero {
+            TILESET_ZERO_ADDRESS
+        } else {
+            TILESET_ONE_ADDRESS
+        };
+
+        let tilemap_address = if use_tile_map_zero {
+            TILEMAP_ZERO_ADDRESS
+        } else {
+            TILEMAP_ONE_ADDRESS
+        };
+
+        let screen_y = current_line as usize;
+        let scrolled_y = screen_y.wrapping_sub(mmu.read_byte(WY) as usize);
+
+        if scrolled_y >= GAMEBOY_WIDTH {
+            return;
+        }
+
+        for screen_x in 0..GAMEBOY_WIDTH {
+            let scrolled_x = (screen_x as u16)
+                .wrapping_add(mmu.read_byte(WX) as u16)
+                .wrapping_sub(7) as usize;
+
+            let tile_x = scrolled_x / TILE_WIDTH_PX;
+            let tile_y = scrolled_y / TILE_HEIGHT_PX;
+
+            let tile_pixel_x = scrolled_x % TILE_WIDTH_PX;
+            let tile_pixel_y = scrolled_y % TILE_HEIGHT_PX;
+
+            let tile_index = tile_y * TILES_PER_LINE + tile_x;
+            let tile_id_address = tilemap_address + tile_index;
+
+            let tile_id = mmu.read_byte(tile_id_address);
+
+            let tile_data_mem_offset = if use_tile_set_zero {
+                tile_id as usize * TILE_BYTES
+            } else {
+                tile_id.wrapping_add(128) as usize * TILE_BYTES
+            };
+
+            let tile_data_line_offset = tile_pixel_y * 2;
+
+            let tile_line_data_start_address = (tileset_address as u16)
+                .wrapping_add(tile_data_mem_offset as u16)
+                .wrapping_add(tile_data_line_offset as u16)
+                as usize;
 
             // TODO: optimize
             let pixels_1 = mmu.read_byte(tile_line_data_start_address);
