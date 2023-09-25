@@ -523,6 +523,12 @@ impl Cpu {
                     InstructionType::Set7R => self.set_r(regs[0].into(), 7),
                     InstructionType::SetIndHl => match instruction.opcode() {
                         PrefixedOpcode::SET0_IND_HL => self.set_ind_hl(0, mmu),
+                        PrefixedOpcode::SET1_IND_HL => self.set_ind_hl(1, mmu),
+                        PrefixedOpcode::SET2_IND_HL => self.set_ind_hl(2, mmu),
+                        PrefixedOpcode::SET3_IND_HL => self.set_ind_hl(3, mmu),
+                        PrefixedOpcode::SET4_IND_HL => self.set_ind_hl(4, mmu),
+                        PrefixedOpcode::SET5_IND_HL => self.set_ind_hl(5, mmu),
+                        PrefixedOpcode::SET6_IND_HL => self.set_ind_hl(6, mmu),
                         PrefixedOpcode::SET7_IND_HL => self.set_ind_hl(7, mmu),
                         _ => unreachable!(),
                     },
@@ -1163,8 +1169,30 @@ impl Cpu {
                     PrefixedOpcode::RES7_IND_HL => {
                         Some(PrefixedInstruction::res7_ind_hl(&[]).into())
                     }
+
                     PrefixedOpcode::SET0_IND_HL => {
                         Some(PrefixedInstruction::set0_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::SET1_IND_HL => {
+                        Some(PrefixedInstruction::set1_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::SET2_IND_HL => {
+                        Some(PrefixedInstruction::set2_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::SET3_IND_HL => {
+                        Some(PrefixedInstruction::set3_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::SET4_IND_HL => {
+                        Some(PrefixedInstruction::set4_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::SET5_IND_HL => {
+                        Some(PrefixedInstruction::set5_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::SET6_IND_HL => {
+                        Some(PrefixedInstruction::set6_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::SET7_IND_HL => {
+                        Some(PrefixedInstruction::set7_ind_hl(&[]).into())
                     }
                     PrefixedOpcode::SET0B => Some(PrefixedInstruction::set0b(&[]).into()),
                     PrefixedOpcode::SET0C => Some(PrefixedInstruction::set0c(&[]).into()),
@@ -1222,9 +1250,6 @@ impl Cpu {
                     PrefixedOpcode::SET7H => Some(PrefixedInstruction::set7h(&[]).into()),
                     PrefixedOpcode::SET7L => Some(PrefixedInstruction::set7l(&[]).into()),
                     PrefixedOpcode::SET7A => Some(PrefixedInstruction::set7a(&[]).into()),
-                    PrefixedOpcode::SET7_IND_HL => {
-                        Some(PrefixedInstruction::set7_ind_hl(&[]).into())
-                    }
                     PrefixedOpcode::RR_B => Some(PrefixedInstruction::rr_b(&[]).into()),
                     PrefixedOpcode::RR_C => Some(PrefixedInstruction::rr_c(&[]).into()),
                     PrefixedOpcode::RR_D => Some(PrefixedInstruction::rr_d(&[]).into()),
@@ -4165,7 +4190,7 @@ mod tests {
     test_set!(Reg::E, &[0xcb, 0xdb], 3, test_set3e);
     test_set!(Reg::H, &[0xcb, 0xdc], 3, test_set3h);
     test_set!(Reg::L, &[0xcb, 0xdd], 3, test_set3l);
-    test_set!(Reg::A, &[0xcb, 0xde], 3, test_set3a);
+    test_set!(Reg::A, &[0xcb, 0xdf], 3, test_set3a);
 
     test_set!(Reg::B, &[0xcb, 0xe0], 4, test_set4b);
     test_set!(Reg::C, &[0xcb, 0xe1], 4, test_set4c);
@@ -4200,6 +4225,12 @@ mod tests {
     test_set!(Reg::A, &[0xcb, 0xff], 7, test_set7a);
 
     test_set_ind_hl!(&[0xcb, 0xc6], 0, test_set0_ind_hl);
+    test_set_ind_hl!(&[0xcb, 0xce], 1, test_set1_ind_hl);
+    test_set_ind_hl!(&[0xcb, 0xd6], 2, test_set2_ind_hl);
+    test_set_ind_hl!(&[0xcb, 0xde], 3, test_set3_ind_hl);
+    test_set_ind_hl!(&[0xcb, 0xe6], 4, test_set4_ind_hl);
+    test_set_ind_hl!(&[0xcb, 0xee], 5, test_set5_ind_hl);
+    test_set_ind_hl!(&[0xcb, 0xf6], 6, test_set6_ind_hl);
     test_set_ind_hl!(&[0xcb, 0xfe], 7, test_set7_ind_hl);
 
     test_rlc_r!(Reg::A, &[0xcb, 0x07], test_rlc_a);

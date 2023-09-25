@@ -1432,6 +1432,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Set1R", len = 0, cycles = [12])]
     SET1L = 0xcd,
 
+    #[instruction(regs = ["HL"], instruction_type = "SetIndHl", len = 0, cycles = [12])]
+    SET1_IND_HL = 0xce,
+
     #[instruction(regs = ["A"], instruction_type = "Set1R", len = 0, cycles = [12])]
     SET1A = 0xcf,
 
@@ -1452,6 +1455,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Set2R", len = 0, cycles = [12])]
     SET2L = 0xd5,
+
+    #[instruction(regs = ["HL"], instruction_type = "SetIndHl", len = 0, cycles = [12])]
+    SET2_IND_HL = 0xd6,
 
     #[instruction(regs = ["A"], instruction_type = "Set2R", len = 0, cycles = [12])]
     SET2A = 0xd7,
@@ -1474,8 +1480,11 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Set3R", len = 0, cycles = [12])]
     SET3L = 0xdd,
 
+    #[instruction(regs = ["HL"], instruction_type = "SetIndHl", len = 0, cycles = [12])]
+    SET3_IND_HL = 0xde,
+
     #[instruction(regs = ["A"], instruction_type = "Set3R", len = 0, cycles = [12])]
-    SET3A = 0xde,
+    SET3A = 0xdf,
 
     #[instruction(regs = ["B"], instruction_type = "Set4R", len = 0, cycles = [12])]
     SET4B = 0xe0,
@@ -1494,6 +1503,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Set4R", len = 0, cycles = [12])]
     SET4L = 0xe5,
+
+    #[instruction(regs = ["HL"], instruction_type = "SetIndHl", len = 0, cycles = [12])]
+    SET4_IND_HL = 0xe6,
 
     #[instruction(regs = ["A"], instruction_type = "Set4R", len = 0, cycles = [12])]
     SET4A = 0xe7,
@@ -1516,6 +1528,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Set5R", len = 0, cycles = [12])]
     SET5L = 0xed,
 
+    #[instruction(regs = ["HL"], instruction_type = "SetIndHl", len = 0, cycles = [12])]
+    SET5_IND_HL = 0xee,
+
     #[instruction(regs = ["A"], instruction_type = "Set5R", len = 0, cycles = [12])]
     SET5A = 0xef,
 
@@ -1536,6 +1551,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Set6R", len = 0, cycles = [12])]
     SET6L = 0xf5,
+
+    #[instruction(regs = ["HL"], instruction_type = "SetIndHl", len = 0, cycles = [12])]
+    SET6_IND_HL = 0xf6,
 
     #[instruction(regs = ["A"], instruction_type = "Set6R", len = 0, cycles = [12])]
     SET6A = 0xf7,
