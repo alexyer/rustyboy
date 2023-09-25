@@ -1258,6 +1258,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Res1R", len = 0, cycles = [12])]
     RES1L = 0x8d,
 
+    #[instruction(regs = ["HL"], instruction_type = "ResIndHl", len = 0, cycles = [12])]
+    RES1_IND_HL = 0x8e,
+
     #[instruction(regs = ["A"], instruction_type = "Res1R", len = 0, cycles = [12])]
     RES1A = 0x8f,
 
@@ -1278,6 +1281,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Res2R", len = 0, cycles = [12])]
     RES2L = 0x95,
+
+    #[instruction(regs = ["HL"], instruction_type = "ResIndHl", len = 0, cycles = [12])]
+    RES2_IND_HL = 0x96,
 
     #[instruction(regs = ["A"], instruction_type = "Res2R", len = 0, cycles = [12])]
     RES2A = 0x97,
@@ -1300,8 +1306,11 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Res3R", len = 0, cycles = [12])]
     RES3L = 0x9d,
 
+    #[instruction(regs = ["HL"], instruction_type = "ResIndHl", len = 0, cycles = [12])]
+    RES3_IND_HL = 0x9e,
+
     #[instruction(regs = ["A"], instruction_type = "Res3R", len = 0, cycles = [12])]
-    RES3A = 0x9e,
+    RES3A = 0x9f,
 
     #[instruction(regs = ["B"], instruction_type = "Res4R", len = 0, cycles = [12])]
     RES4B = 0xa0,
@@ -1320,6 +1329,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Res4R", len = 0, cycles = [12])]
     RES4L = 0xa5,
+
+    #[instruction(regs = ["HL"], instruction_type = "ResIndHl", len = 0, cycles = [12])]
+    RES4_IND_HL = 0xa6,
 
     #[instruction(regs = ["A"], instruction_type = "Res4R", len = 0, cycles = [12])]
     RES4A = 0xa7,
@@ -1342,6 +1354,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Res5R", len = 0, cycles = [12])]
     RES5L = 0xad,
 
+    #[instruction(regs = ["HL"], instruction_type = "ResIndHl", len = 0, cycles = [12])]
+    RES5_IND_HL = 0xae,
+
     #[instruction(regs = ["A"], instruction_type = "Res5R", len = 0, cycles = [12])]
     RES5A = 0xaf,
 
@@ -1362,6 +1377,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Res6R", len = 0, cycles = [12])]
     RES6L = 0xb5,
+
+    #[instruction(regs = ["HL"], instruction_type = "ResIndHl", len = 0, cycles = [12])]
+    RES6_IND_HL = 0xb6,
 
     #[instruction(regs = ["A"], instruction_type = "Res6R", len = 0, cycles = [12])]
     RES6A = 0xb7,

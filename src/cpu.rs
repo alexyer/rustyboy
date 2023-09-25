@@ -510,6 +510,12 @@ impl Cpu {
                     InstructionType::Res7R => self.res_r(regs[0].into(), 7),
                     InstructionType::ResIndHl => match instruction.opcode() {
                         PrefixedOpcode::RES0_IND_HL => self.res_ind_hl(0, mmu),
+                        PrefixedOpcode::RES1_IND_HL => self.res_ind_hl(1, mmu),
+                        PrefixedOpcode::RES2_IND_HL => self.res_ind_hl(2, mmu),
+                        PrefixedOpcode::RES3_IND_HL => self.res_ind_hl(3, mmu),
+                        PrefixedOpcode::RES4_IND_HL => self.res_ind_hl(4, mmu),
+                        PrefixedOpcode::RES5_IND_HL => self.res_ind_hl(5, mmu),
+                        PrefixedOpcode::RES6_IND_HL => self.res_ind_hl(6, mmu),
                         PrefixedOpcode::RES7_IND_HL => self.res_ind_hl(7, mmu),
                         _ => unreachable!(),
                     },
@@ -1165,6 +1171,24 @@ impl Cpu {
                     PrefixedOpcode::RES7A => Some(PrefixedInstruction::res7a(&[]).into()),
                     PrefixedOpcode::RES0_IND_HL => {
                         Some(PrefixedInstruction::res0_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::RES1_IND_HL => {
+                        Some(PrefixedInstruction::res1_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::RES2_IND_HL => {
+                        Some(PrefixedInstruction::res2_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::RES3_IND_HL => {
+                        Some(PrefixedInstruction::res3_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::RES4_IND_HL => {
+                        Some(PrefixedInstruction::res4_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::RES5_IND_HL => {
+                        Some(PrefixedInstruction::res5_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::RES6_IND_HL => {
+                        Some(PrefixedInstruction::res6_ind_hl(&[]).into())
                     }
                     PrefixedOpcode::RES7_IND_HL => {
                         Some(PrefixedInstruction::res7_ind_hl(&[]).into())
@@ -4123,7 +4147,7 @@ mod tests {
     test_res!(Reg::E, &[0xcb, 0x9b], 3, test_res3e);
     test_res!(Reg::H, &[0xcb, 0x9c], 3, test_res3h);
     test_res!(Reg::L, &[0xcb, 0x9d], 3, test_res3l);
-    test_res!(Reg::A, &[0xcb, 0x9e], 3, test_res3a);
+    test_res!(Reg::A, &[0xcb, 0x9f], 3, test_res3a);
 
     test_res!(Reg::B, &[0xcb, 0xa0], 4, test_res4b);
     test_res!(Reg::C, &[0xcb, 0xa1], 4, test_res4c);
@@ -4150,6 +4174,12 @@ mod tests {
     test_res!(Reg::A, &[0xcb, 0xb7], 6, test_res6a);
 
     test_res_ind_hl!(&[0xcb, 0x86], 0, test_res0_ind_hl);
+    test_res_ind_hl!(&[0xcb, 0x8e], 1, test_res1_ind_hl);
+    test_res_ind_hl!(&[0xcb, 0x96], 2, test_res2_ind_hl);
+    test_res_ind_hl!(&[0xcb, 0x9e], 3, test_res3_ind_hl);
+    test_res_ind_hl!(&[0xcb, 0xa6], 4, test_res4_ind_hl);
+    test_res_ind_hl!(&[0xcb, 0xae], 5, test_res5_ind_hl);
+    test_res_ind_hl!(&[0xcb, 0xb6], 6, test_res6_ind_hl);
     test_res_ind_hl!(&[0xcb, 0xbe], 7, test_res7_ind_hl);
 
     test_res!(Reg::B, &[0xcb, 0xb8], 7, test_res7b);
