@@ -1,4 +1,8 @@
-use std::{fs::File, io::Write};
+use std::{
+    fs::File,
+    io::Write,
+    time::{Duration, Instant},
+};
 
 use crate::{
     cartridge::load_cartridge,
@@ -84,7 +88,7 @@ impl GameBoy {
             let start = std::time::Instant::now();
 
             let mut executed_cycles = 0;
-            while executed_cycles <= CYCLES_PER_SEC {
+            while executed_cycles <= 10000 {
                 if let Some(mut log_file) = log_file.as_ref() {
                     log_file
                         .write_all(self.cpu.log_state(&self.mmu).as_bytes())
@@ -99,12 +103,12 @@ impl GameBoy {
                 }
             }
 
-            // if std::time::Instant::now().duration_since(start) < std::time::Duration::from_secs(1) {
-            //     std::thread::sleep(
-            //         std::time::Duration::from_secs(1)
-            //             - std::time::Instant::now().duration_since(start),
-            //     );
-            // }
+            let exec_time = Instant::now().duration_since(start);
+            let expected_time = Duration::from_nanos(200) * executed_cycles as u32;
+
+            if exec_time < expected_time {
+                std::thread::sleep(expected_time - exec_time);
+            }
         }
     }
 
