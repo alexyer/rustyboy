@@ -201,6 +201,7 @@ impl Ppu {
     }
 
     check_lcd_control!(display_enabled, 7);
+    check_lcd_control!(window_tile_map, 6);
     check_lcd_control!(window_enabled, 5);
     check_lcd_control!(bg_window_tile_data, 4);
     check_lcd_control!(bg_tile_map, 3);
@@ -476,7 +477,7 @@ impl Ppu {
 
     fn draw_window_line(&mut self, mmu: &Mmu, current_line: u8) {
         let use_tile_set_zero = self.bg_window_tile_data(mmu);
-        let use_tile_map_zero = !self.bg_tile_map(mmu);
+        let use_tile_map_zero = !self.window_tile_map(mmu);
 
         let palette = self.load_palette(mmu, BGP_ADDRESS);
 
@@ -493,9 +494,9 @@ impl Ppu {
         };
 
         let screen_y = current_line as usize;
-        let scrolled_y = screen_y.wrapping_sub(mmu.read_byte(WY) as usize);
+        let scrolled_y = (screen_y as u16).wrapping_sub(mmu.read_byte(WY) as u16) as usize;
 
-        if scrolled_y >= GAMEBOY_WIDTH {
+        if scrolled_y >= GAMEBOY_HEIGHT {
             return;
         }
 

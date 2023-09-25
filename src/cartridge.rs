@@ -158,7 +158,6 @@ impl Cartridge for Mbc1 {
 
                     self.ram[address_in_ram]
                 } else {
-                    println!("MBC1: reading from disabled RAM");
                     0xff
                 }
             }
@@ -182,8 +181,6 @@ impl Cartridge for Mbc1 {
                     let address_in_ram = (addr - 0xa000) + offset_into_ram;
 
                     self.ram[address_in_ram] = data;
-                } else {
-                    println!("MBC1: writing to disabled RAM");
                 }
             }
             _ => panic!("invalid MBC1 memory write: 0x{addr:x}"),
