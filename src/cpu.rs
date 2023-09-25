@@ -497,6 +497,12 @@ impl Cpu {
                     InstructionType::Bit7R => self.bit_r(regs[0].into(), 7),
                     InstructionType::BitIndHl => match instruction.opcode() {
                         PrefixedOpcode::BIT0_IND_HL => self.bit_ind_hl(0, mmu),
+                        PrefixedOpcode::BIT1_IND_HL => self.bit_ind_hl(1, mmu),
+                        PrefixedOpcode::BIT2_IND_HL => self.bit_ind_hl(2, mmu),
+                        PrefixedOpcode::BIT3_IND_HL => self.bit_ind_hl(3, mmu),
+                        PrefixedOpcode::BIT4_IND_HL => self.bit_ind_hl(4, mmu),
+                        PrefixedOpcode::BIT5_IND_HL => self.bit_ind_hl(5, mmu),
+                        PrefixedOpcode::BIT6_IND_HL => self.bit_ind_hl(6, mmu),
                         PrefixedOpcode::BIT7_IND_HL => self.bit_ind_hl(7, mmu),
                         _ => unreachable!(),
                     },
@@ -1109,6 +1115,24 @@ impl Cpu {
                     PrefixedOpcode::BIT7A => Some(PrefixedInstruction::bit7a(&[]).into()),
                     PrefixedOpcode::BIT0_IND_HL => {
                         Some(PrefixedInstruction::bit0_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::BIT1_IND_HL => {
+                        Some(PrefixedInstruction::bit1_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::BIT2_IND_HL => {
+                        Some(PrefixedInstruction::bit2_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::BIT3_IND_HL => {
+                        Some(PrefixedInstruction::bit3_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::BIT4_IND_HL => {
+                        Some(PrefixedInstruction::bit4_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::BIT5_IND_HL => {
+                        Some(PrefixedInstruction::bit5_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::BIT6_IND_HL => {
+                        Some(PrefixedInstruction::bit6_ind_hl(&[]).into())
                     }
                     PrefixedOpcode::BIT7_IND_HL => {
                         Some(PrefixedInstruction::bit7_ind_hl(&[]).into())
@@ -4115,6 +4139,12 @@ mod tests {
     test_bit!(Reg::A, &[0xcb, 0x7f], 7, test_bit7a);
 
     test_bit_ind_hl!(&[0xcb, 0x46], 0, test_bit0_ind_hl);
+    test_bit_ind_hl!(&[0xcb, 0x4e], 1, test_bit1_ind_hl);
+    test_bit_ind_hl!(&[0xcb, 0x56], 2, test_bit2_ind_hl);
+    test_bit_ind_hl!(&[0xcb, 0x5e], 3, test_bit3_ind_hl);
+    test_bit_ind_hl!(&[0xcb, 0x66], 4, test_bit4_ind_hl);
+    test_bit_ind_hl!(&[0xcb, 0x6e], 5, test_bit5_ind_hl);
+    test_bit_ind_hl!(&[0xcb, 0x76], 6, test_bit6_ind_hl);
     test_bit_ind_hl!(&[0xcb, 0x7e], 7, test_bit7_ind_hl);
 
     test_res!(Reg::B, &[0xcb, 0x80], 0, test_res0b);

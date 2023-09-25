@@ -1084,6 +1084,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Bit1R", len = 0, cycles = [12])]
     BIT1L = 0x4d,
 
+    #[instruction(regs = ["HL"], instruction_type = "BitIndHl", len = 0, cycles = [12])]
+    BIT1_IND_HL = 0x4e,
+
     #[instruction(regs = ["A"], instruction_type = "Bit1R", len = 0, cycles = [12])]
     BIT1A = 0x4f,
 
@@ -1104,6 +1107,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Bit2R", len = 0, cycles = [12])]
     BIT2L = 0x55,
+
+    #[instruction(regs = ["HL"], instruction_type = "BitIndHl", len = 0, cycles = [12])]
+    BIT2_IND_HL = 0x56,
 
     #[instruction(regs = ["A"], instruction_type = "Bit2R", len = 0, cycles = [12])]
     BIT2A = 0x57,
@@ -1126,6 +1132,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Bit3R", len = 0, cycles = [12])]
     BIT3L = 0x5d,
 
+    #[instruction(regs = ["HL"], instruction_type = "BitIndHl", len = 0, cycles = [12])]
+    BIT3_IND_HL = 0x5e,
+
     #[instruction(regs = ["A"], instruction_type = "Bit3R", len = 0, cycles = [12])]
     BIT3A = 0x5f,
 
@@ -1146,6 +1155,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Bit4R", len = 0, cycles = [12])]
     BIT4L = 0x65,
+
+    #[instruction(regs = ["HL"], instruction_type = "BitIndHl", len = 0, cycles = [12])]
+    BIT4_IND_HL = 0x66,
 
     #[instruction(regs = ["A"], instruction_type = "Bit4R", len = 0, cycles = [12])]
     BIT4A = 0x67,
@@ -1168,6 +1180,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Bit5R", len = 0, cycles = [12])]
     BIT5L = 0x6d,
 
+    #[instruction(regs = ["HL"], instruction_type = "BitIndHl", len = 0, cycles = [12])]
+    BIT5_IND_HL = 0x6e,
+
     #[instruction(regs = ["A"], instruction_type = "Bit5R", len = 0, cycles = [12])]
     BIT5A = 0x6f,
 
@@ -1188,6 +1203,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Bit6R", len = 0, cycles = [12])]
     BIT6L = 0x75,
+
+    #[instruction(regs = ["HL"], instruction_type = "BitIndHl", len = 0, cycles = [12])]
+    BIT6_IND_HL = 0x76,
 
     #[instruction(regs = ["A"], instruction_type = "Bit6R", len = 0, cycles = [12])]
     BIT6A = 0x77,
