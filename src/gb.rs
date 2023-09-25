@@ -7,6 +7,7 @@ use std::{
 use crate::{
     cartridge::load_cartridge,
     cpu::{Cpu, Reg, Reg16},
+    input::{Button, Input},
     mmu::Mmu,
     ppu::Ppu,
     screen::{Headless, Screen, Sdl},
@@ -15,8 +16,15 @@ use crate::{
 
 pub const CYCLES_PER_SEC: usize = 4194304;
 
+pub enum GameBoyEvent {
+    Quit,
+    ButtonPressed(Button),
+    ButtonReleased(Button),
+}
+
 pub struct GameBoy {
     cpu: Cpu,
+    input: Input,
     mmu: Mmu,
     ppu: Ppu,
     timer: Timer,
@@ -29,11 +37,12 @@ impl GameBoy {
         println!("ROM name: {}", cartridge.name());
         println!("Cartridge type: {:?}", cartridge.cartridge_type());
         println!("Ram size: {:?}", cartridge.ram_size());
-        println!("CBG flag: {:?}", cartridge.cgb_flag());
+        println!("CGB flag: {:?}", cartridge.cgb_flag());
 
         let gb = if let Some(boot_rom) = boot_rom {
             Self {
                 cpu: Cpu::default(),
+                input: Input::default(),
                 mmu: Mmu::new(Some(boot_rom.to_vec()), cartridge),
                 ppu: Ppu::default(),
                 timer: Timer::default(),
@@ -41,6 +50,7 @@ impl GameBoy {
         } else {
             let mut gb = Self {
                 cpu: Cpu::default(),
+                input: Input::default(),
                 mmu: Mmu::new(None, cartridge),
                 ppu: Ppu::default(),
                 timer: Timer::default(),
@@ -115,12 +125,18 @@ impl GameBoy {
     pub fn step(&mut self, screen: &mut impl Screen, debug_disable_sprites: bool) -> (usize, bool) {
         let mut should_quit = false;
 
+        self.input.tick(&mut self.mmu);
         let cycles = self.cpu.tick(&mut self.mmu);
         self.ppu.tick(cycles, &mut self.mmu, debug_disable_sprites);
         self.timer.tick(cycles, &mut self.mmu);
 
         if self.ppu.should_draw {
-            should_quit = screen.poll_events();
+            match screen.poll_events() {
+                Some(GameBoyEvent::Quit) => should_quit = true,
+                Some(GameBoyEvent::ButtonPressed(button)) => self.input.button_pressed(&button),
+                Some(GameBoyEvent::ButtonReleased(button)) => self.input.button_released(&button),
+                None => (),
+            }
 
             screen.update(self.ppu.buffer());
             self.ppu.buffer_mut().reset();

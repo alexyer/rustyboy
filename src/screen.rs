@@ -1,5 +1,6 @@
 use sdl2::{
     event::Event,
+    keyboard::Keycode,
     pixels::PixelFormatEnum,
     render::{Canvas, Texture},
     video::Window,
@@ -8,6 +9,8 @@ use sdl2::{
 
 use crate::{
     frame_buffer::FrameBuffer,
+    gb::GameBoyEvent,
+    input::Button,
     ppu::{GAMEBOY_HEIGHT, GAMEBOY_WIDTH},
 };
 
@@ -17,7 +20,7 @@ const HEIGHT: usize = GAMEBOY_HEIGHT * PIXEL_SIZE;
 
 pub trait Screen {
     fn update(&mut self, frame_buffer: &FrameBuffer);
-    fn poll_events(&mut self) -> bool;
+    fn poll_events(&mut self) -> Option<GameBoyEvent>;
 }
 
 #[derive(Default)]
@@ -28,8 +31,8 @@ impl Screen for Headless {
         return;
     }
 
-    fn poll_events(&mut self) -> bool {
-        return false;
+    fn poll_events(&mut self) -> Option<GameBoyEvent> {
+        return None;
     }
 }
 
@@ -103,16 +106,39 @@ impl Screen for Sdl {
         self.canvas.present();
     }
 
-    fn poll_events(&mut self) -> bool {
-        let mut should_quit = false;
-
+    fn poll_events(&mut self) -> Option<GameBoyEvent> {
         while let Some(event) = self.events.poll_event() {
-            match event {
-                Event::Quit { timestamp: _ } => should_quit = true,
-                _ => (),
+            let event = match event {
+                Event::KeyDown { keycode, .. } => match keycode {
+                    Some(Keycode::Up) => Some(GameBoyEvent::ButtonPressed(Button::Up)),
+                    Some(Keycode::Down) => Some(GameBoyEvent::ButtonPressed(Button::Down)),
+                    Some(Keycode::Left) => Some(GameBoyEvent::ButtonPressed(Button::Left)),
+                    Some(Keycode::Right) => Some(GameBoyEvent::ButtonPressed(Button::Right)),
+                    Some(Keycode::Z) => Some(GameBoyEvent::ButtonPressed(Button::B)),
+                    Some(Keycode::X) => Some(GameBoyEvent::ButtonPressed(Button::A)),
+                    Some(Keycode::Backspace) => Some(GameBoyEvent::ButtonPressed(Button::Select)),
+                    Some(Keycode::Return) => Some(GameBoyEvent::ButtonPressed(Button::Start)),
+                    Some(Keycode::Escape) => Some(GameBoyEvent::Quit),
+                    _ => None,
+                },
+                Event::KeyUp { keycode, .. } => match keycode {
+                    Some(Keycode::Up) => Some(GameBoyEvent::ButtonReleased(Button::Up)),
+                    Some(Keycode::Down) => Some(GameBoyEvent::ButtonReleased(Button::Down)),
+                    Some(Keycode::Left) => Some(GameBoyEvent::ButtonReleased(Button::Left)),
+                    Some(Keycode::Right) => Some(GameBoyEvent::ButtonReleased(Button::Right)),
+                    Some(Keycode::Z) => Some(GameBoyEvent::ButtonReleased(Button::B)),
+                    Some(Keycode::X) => Some(GameBoyEvent::ButtonReleased(Button::A)),
+                    Some(Keycode::Backspace) => Some(GameBoyEvent::ButtonReleased(Button::Select)),
+                    Some(Keycode::Return) => Some(GameBoyEvent::ButtonReleased(Button::Start)),
+                    _ => None,
+                },
+                Event::Quit { timestamp: _ } => Some(GameBoyEvent::Quit),
+                _ => None,
             };
+
+            return event;
         }
 
-        should_quit
+        None
     }
 }

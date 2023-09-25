@@ -5,6 +5,7 @@ mod cpu;
 mod errors;
 mod frame_buffer;
 mod gb;
+mod input;
 mod instruction;
 mod mmu;
 mod ppu;
