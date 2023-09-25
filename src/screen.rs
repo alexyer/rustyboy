@@ -27,12 +27,10 @@ pub trait Screen {
 pub struct Headless;
 
 impl Screen for Headless {
-    fn update(&mut self, _frame_buffer: &FrameBuffer) {
-        return;
-    }
+    fn update(&mut self, _frame_buffer: &FrameBuffer) {}
 
     fn poll_events(&mut self) -> Option<GameBoyEvent> {
-        return None;
+        None
     }
 }
 
@@ -107,7 +105,7 @@ impl Screen for Sdl {
     }
 
     fn poll_events(&mut self) -> Option<GameBoyEvent> {
-        while let Some(event) = self.events.poll_event() {
+        if let Some(event) = self.events.poll_event() {
             let event = match event {
                 Event::KeyDown { keycode, .. } => match keycode {
                     Some(Keycode::Up) => Some(GameBoyEvent::ButtonPressed(Button::Up)),

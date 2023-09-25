@@ -145,13 +145,13 @@ impl Cartridge for Mbc1 {
     fn read(&self, addr: usize) -> u8 {
         match addr {
             addr if addr < 0x4000 => self.buffer[addr],
-            addr if addr >= 0x4000 && addr <= 0x7fff => {
+            addr if (0x4000..=0x7fff).contains(&addr) => {
                 let address_into_bank = addr - 0x4000;
                 let bank_offset = 0x4000 * self.rom_bank as usize;
 
                 self.buffer[bank_offset + address_into_bank]
             }
-            addr if addr >= 0xa000 && addr <= 0xbfff => {
+            addr if (0xa000..=0xbfff).contains(&addr) => {
                 if self.ram_enabled {
                     let offset_into_ram = 0x2000 * self.ram_bank as usize;
                     let address_in_ram = (addr - 0xa000) + offset_into_ram;
@@ -167,15 +167,15 @@ impl Cartridge for Mbc1 {
 
     fn write(&mut self, addr: usize, data: u8) {
         match addr {
-            addr if addr < 0x2000 => self.ram_enabled = data & 0xff == 0xa,
-            addr if addr >= 0x2000 && addr < 0x4000 => match data {
+            addr if addr < 0x2000 => self.ram_enabled = data == 0xa,
+            addr if (0x2000..0x4000).contains(&addr) => match data {
                 0x00 => self.rom_bank = 0x01,
                 0x20 => self.rom_bank = 0x21,
                 0x40 => self.rom_bank = 0x41,
                 0x60 => self.rom_bank = 0x61,
                 _ => self.rom_bank = data as u16 & 0x1f,
             },
-            addr if addr >= 0xa000 && addr <= 0xbfff => {
+            addr if (0xa000..=0xbfff).contains(&addr) => {
                 if self.ram_enabled {
                     let offset_into_ram = 0x2000 * self.ram_bank as usize;
                     let address_in_ram = (addr - 0xa000) + offset_into_ram;

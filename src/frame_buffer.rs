@@ -6,6 +6,7 @@ pub struct FrameBuffer {
     buffer: Vec<Color>,
 }
 
+#[allow(unused)]
 impl FrameBuffer {
     pub fn new(width: usize, height: usize) -> Self {
         Self {

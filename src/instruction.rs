@@ -133,6 +133,7 @@ impl From<PrefixedInstruction> for Instruction {
 #[instruction_struct_name(NormalInstruction)]
 #[repr(u8)]
 #[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Opcode {
     #[instruction(instruction_type = "Nop", len = 0, cycles = [4])]
     NOP = 0x00,

@@ -39,7 +39,7 @@ impl GameBoy {
         println!("Ram size: {:?}", cartridge.ram_size());
         println!("CGB flag: {:?}", cartridge.cgb_flag());
 
-        let gb = if let Some(boot_rom) = boot_rom {
+        if let Some(boot_rom) = boot_rom {
             Self {
                 cpu: Cpu::default(),
                 input: Input::default(),
@@ -69,14 +69,12 @@ impl GameBoy {
             gb.cpu.set_z();
 
             gb
-        };
-
-        gb
+        }
     }
 
     pub fn run(&mut self, headless: bool, debug_disable_sprites: bool, log_file: Option<String>) {
         if headless {
-            self._run(&mut Headless::default(), debug_disable_sprites, log_file);
+            self._run(&mut Headless, debug_disable_sprites, log_file);
         } else {
             self._run(&mut Sdl::default(), debug_disable_sprites, log_file);
         };
@@ -88,11 +86,7 @@ impl GameBoy {
         debug_disable_sprites: bool,
         log_file_path: Option<String>,
     ) {
-        let log_file = if let Some(path) = log_file_path {
-            Some(File::create(path).unwrap())
-        } else {
-            None
-        };
+        let log_file = log_file_path.map(|path| File::create(path).unwrap());
 
         loop {
             let start = std::time::Instant::now();

@@ -76,6 +76,7 @@ impl From<u8> for Color {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<SdlColor> for Color {
     fn into(self) -> SdlColor {
         match self {
@@ -381,7 +382,7 @@ impl Ppu {
                 let screen_x = start_x.wrapping_add(x as i16) as u8;
                 let screen_y = start_y.wrapping_add(y as i16) as u8;
 
-                if !Self::is_on_screen(screen_x as u8, screen_y as u8) {
+                if !Self::is_on_screen(screen_x, screen_y) {
                     continue;
                 }
 

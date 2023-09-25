@@ -357,7 +357,7 @@ impl Cpu {
                     InstructionType::LdRD8 => {
                         self.ld_r_d8(regs[0].into(), &prepare_data!(instruction, 1))
                     }
-                    InstructionType::LdAA16 => self.ld_a_a16(&prepare_data!(instruction, 2), &mmu),
+                    InstructionType::LdAA16 => self.ld_a_a16(&prepare_data!(instruction, 2), mmu),
                     InstructionType::LdRR => self.ld_r_r(regs[0].into(), regs[1].into()),
                     InstructionType::LdAA8 => self.ldh_a_a8(&prepare_data!(instruction, 1), mmu),
                     InstructionType::LdA8A => self.ldh_a8_a(&prepare_data!(instruction, 1), mmu),
@@ -546,7 +546,7 @@ impl Cpu {
         }
     }
 
-    fn read_instruction<'a>(&mut self, mmu: &'a mut Mmu) -> Option<Instruction> {
+    fn read_instruction(&mut self, mmu: &mut Mmu) -> Option<Instruction> {
         let opcode = match Opcode::try_from(mmu.read_byte(self.regs.read_reg16(Reg16::PC) as usize))
         {
             Ok(opcode) => opcode,
@@ -1503,8 +1503,8 @@ impl Cpu {
 
         self.clear_z();
         self.clear_n();
-        self.set_h_to(((reg ^ e8 as u16 ^ (val & 0xffff)) & 0x10) == 0x10);
-        self.set_c_to(((reg ^ e8 as u16 ^ (val & 0xffff)) & 0x100) == 0x100);
+        self.set_h_to(((reg ^ e8 as u16 ^ val) & 0x10) == 0x10);
+        self.set_c_to(((reg ^ e8 as u16 ^ val) & 0x100) == 0x100);
     }
 
     fn add_sp_e8(&mut self, data: &[u8; 1]) {
@@ -1515,8 +1515,8 @@ impl Cpu {
 
         self.clear_z();
         self.clear_n();
-        self.set_h_to(((reg ^ e8 as u16 ^ (val & 0xffff)) & 0x10) == 0x10);
-        self.set_c_to(((reg ^ e8 as u16 ^ (val & 0xffff)) & 0x100) == 0x100);
+        self.set_h_to(((reg ^ e8 as u16 ^ val) & 0x10) == 0x10);
+        self.set_c_to(((reg ^ e8 as u16 ^ val) & 0x100) == 0x100);
 
         self.regs.write_reg16(Reg16::SP, val);
     }

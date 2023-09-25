@@ -41,11 +41,12 @@ impl Default for Mmu {
             oam: vec![0; 160],
             ie: 0,
             boot_rom: None,
-            cartridge: Box::new(EmptyCartridge::default()),
+            cartridge: Box::<EmptyCartridge>::default(),
         }
     }
 }
 
+#[allow(unused)]
 impl Mmu {
     pub fn new(boot_rom: Option<Vec<u8>>, cartridge: Box<dyn Cartridge>) -> Self {
         Self {
@@ -74,13 +75,13 @@ impl Mmu {
     pub fn write_byte(&mut self, addr: usize, data: u8) {
         match addr {
             addr if addr < 0x8000 => self.cartridge_write_byte(addr, data),
-            addr if addr >= 0x8000 && addr < 0xa000 => self.vram_write_byte(addr - 0x8000, data),
-            addr if addr >= 0xa000 && addr < 0xc000 => self.cartridge_write_byte(addr, data),
-            addr if addr >= 0xc000 && addr < 0xe000 => self.wram_write_byte(addr - 0xc000, data),
-            addr if addr >= 0xe000 && addr < 0xfe00 => self.wram_write_byte(addr - 0xe000, data),
-            addr if addr >= 0xfe00 && addr < 0xfea0 => self.oam_write_byte(addr - 0xfe00, data),
-            addr if addr >= 0xff00 && addr < 0xff80 => self.io_write_byte(addr - 0xff00, data),
-            addr if addr >= 0xff80 && addr < 0xffff => self.hram_write_byte(addr - 0xff80, data),
+            addr if (0x8000..0xa000).contains(&addr) => self.vram_write_byte(addr - 0x8000, data),
+            addr if (0xa000..0xc000).contains(&addr) => self.cartridge_write_byte(addr, data),
+            addr if (0xc000..0xe000).contains(&addr) => self.wram_write_byte(addr - 0xc000, data),
+            addr if (0xe000..0xfe00).contains(&addr) => self.wram_write_byte(addr - 0xe000, data),
+            addr if (0xfe00..0xfea0).contains(&addr) => self.oam_write_byte(addr - 0xfe00, data),
+            addr if (0xff00..0xff80).contains(&addr) => self.io_write_byte(addr - 0xff00, data),
+            addr if (0xff80..0xffff).contains(&addr) => self.hram_write_byte(addr - 0xff80, data),
             addr if addr == 0xffff => self.ie_write(data),
             _ => panic!("invalid memory write: {:X}", addr),
         }
@@ -89,13 +90,13 @@ impl Mmu {
     pub fn read_byte(&self, addr: usize) -> u8 {
         match addr {
             addr if addr < 0x8000 => self.cartridge_read_byte(addr),
-            addr if addr >= 0x8000 && addr < 0xa000 => self.vram_read_byte(addr - 0x8000),
-            addr if addr >= 0xa000 && addr < 0xc000 => self.cartridge_read_byte(addr),
-            addr if addr >= 0xc000 && addr < 0xe000 => self.wram_read_byte(addr - 0xc000),
-            addr if addr >= 0xe000 && addr < 0xfe00 => self.wram_read_byte(addr - 0xe000),
-            addr if addr >= 0xfe00 && addr < 0xfea0 => self.oam_read_byte(addr - 0xfe00),
-            addr if addr >= 0xff00 && addr < 0xff80 => self.io_read_byte(addr - 0xff00),
-            addr if addr >= 0xff80 && addr < 0xffff => self.hram_read_byte(addr - 0xff80),
+            addr if (0x8000..0xa000).contains(&addr) => self.vram_read_byte(addr - 0x8000),
+            addr if (0xa000..0xc000).contains(&addr) => self.cartridge_read_byte(addr),
+            addr if (0xc000..0xe000).contains(&addr) => self.wram_read_byte(addr - 0xc000),
+            addr if (0xe000..0xfe00).contains(&addr) => self.wram_read_byte(addr - 0xe000),
+            addr if (0xfe00..0xfea0).contains(&addr) => self.oam_read_byte(addr - 0xfe00),
+            addr if (0xff00..0xff80).contains(&addr) => self.io_read_byte(addr - 0xff00),
+            addr if (0xff80..0xffff).contains(&addr) => self.hram_read_byte(addr - 0xff80),
             addr if addr == 0xffff => self.ie_read(),
             _ => panic!("invalid memory read: {:X}", addr),
         }
@@ -147,7 +148,7 @@ impl Mmu {
             // P1/JOYP
             0x00 => self.io[addr] = data,
             // TODO(alexyer): Remove later. Currently it's used to log test rom output.
-            addr if addr > 0 && addr <= 0x02 => print!("{}", data as char),
+            addr if (0x00..0x02).contains(&addr) => print!("{}", data as char),
             // DIV
             0x04 => self.io[addr] = data,
             // TIMA
@@ -157,7 +158,7 @@ impl Mmu {
             // TAC
             0x07 => self.io[addr] = data,
             // TODO(alexyer): implement sound.
-            addr if addr >= 0x10 && addr < 0x40 => (),
+            addr if (0x10..0x40).contains(&addr) => (),
             // LCDC
             0x40 => self.io[addr] = data,
             // STAT
@@ -215,7 +216,7 @@ impl Mmu {
             // TAC
             0x07 => self.io[addr],
             // TODO(alexyer): implement sound.
-            addr if addr >= 0x10 && addr < 0x40 => self.io[addr],
+            addr if (0x10..0x40).contains(&addr) => self.io[addr],
             // LCDC
             0x40 => self.io[addr],
             // STAT
