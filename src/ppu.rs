@@ -4,7 +4,6 @@ use crate::{
     frame_buffer::FrameBuffer,
     get_bit,
     mmu::{Mmu, INT_FLAG_ADDRESS},
-    screen,
 };
 
 use crate::check_bit;
@@ -25,8 +24,10 @@ const TILEMAP_ONE_ADDRESS: usize = 0x9c00;
 const LCD_CONTROL_ADDRESS: usize = 0xff40;
 const LCD_STATUS_ADDRESS: usize = 0xff41;
 
-const WY: usize = 0xff4a;
-const WX: usize = 0xff4b;
+const SCY: usize = 0xff42;
+const SCX: usize = 0xff43;
+const _WY: usize = 0xff4a;
+const _WX: usize = 0xff4b;
 
 const LY_ADDRESS: usize = 0xff44;
 const LYC_ADDRESS: usize = 0xff45;
@@ -55,7 +56,7 @@ macro_rules! check_lcd_control {
     };
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Color {
     White,
     LightGray,
@@ -89,14 +90,15 @@ impl From<u8> for Color {
 impl Into<SdlColor> for Color {
     fn into(self) -> SdlColor {
         match self {
-            Color::White => SdlColor::RGB(155, 188, 15),
-            Color::LightGray => SdlColor::RGB(139, 172, 15),
-            Color::DarkGray => SdlColor::RGB(48, 98, 48),
-            Color::Black => SdlColor::RGB(15, 56, 15),
+            Color::White => SdlColor::RGB(224, 248, 208),
+            Color::LightGray => SdlColor::RGB(136, 192, 112),
+            Color::DarkGray => SdlColor::RGB(52, 104, 86),
+            Color::Black => SdlColor::RGB(8, 24, 32),
         }
     }
 }
 
+#[derive(Debug)]
 struct Palette(Color, Color, Color, Color);
 
 impl Palette {
@@ -159,7 +161,7 @@ impl Tile {
         let mut pixel_line = vec![];
 
         for i in 0..8 {
-            let color = ((get_bit!(byte_2, 7 - i) << 1) | (get_bit!(byte_1, 7 - i)));
+            let color = (get_bit!(byte_2, 7 - i) << 1) | (get_bit!(byte_1, 7 - i));
             pixel_line.push(color)
         }
 
@@ -194,12 +196,16 @@ impl Ppu {
         &self.buffer
     }
 
-    pub fn tick(&mut self, cycles: usize, mmu: &mut Mmu) {
+    pub fn buffer_mut(&mut self) -> &mut FrameBuffer {
+        &mut self.buffer
+    }
+
+    pub fn tick(&mut self, cycles: usize, mmu: &mut Mmu, debug_disable_sprites: bool) {
         self.cycle_counter += cycles;
 
         match self.current_mode {
             VideoMode::HBlank => self.hblank(mmu),
-            VideoMode::VBlank => self.vblank(mmu),
+            VideoMode::VBlank => self.vblank(mmu, debug_disable_sprites),
             VideoMode::SearchingOam => self.searching_oam(mmu),
             VideoMode::TransferingData => self.transfering_data(mmu),
         }
@@ -272,14 +278,14 @@ impl Ppu {
         }
     }
 
-    fn vblank(&mut self, mmu: &mut Mmu) {
+    fn vblank(&mut self, mmu: &mut Mmu, debug_disable_sprites: bool) {
         if self.cycle_counter >= TICKS_PER_SCANLINE {
             mmu.inc(LY_ADDRESS);
 
             self.cycle_counter %= TICKS_PER_SCANLINE;
 
             if mmu.read_byte(LY_ADDRESS) == 154 {
-                self.write_sprites(mmu);
+                self.write_sprites(mmu, debug_disable_sprites);
 
                 self.should_draw = true;
 
@@ -292,8 +298,8 @@ impl Ppu {
         }
     }
 
-    fn write_sprites(&mut self, mmu: &Mmu) {
-        if !self.sprites_enabled(mmu) {
+    fn write_sprites(&mut self, mmu: &Mmu, debug_disable_sprites: bool) {
+        if !self.sprites_enabled(mmu) || debug_disable_sprites {
             return;
         }
 
@@ -352,12 +358,12 @@ impl Ppu {
 
         let tile_offset = pattern_n as usize * TILE_BYTES;
 
-        let pattern_address = tile_set_location.wrapping_add(tile_offset);
+        let pattern_address = tile_set_location + tile_offset;
 
         let tile = Tile::new(mmu, pattern_address, sprite_size_multiplier);
 
-        let start_y = (sprite_y as i16).wrapping_mul(16);
-        let start_x = (sprite_x as i16).wrapping_mul(8);
+        let start_y = (sprite_y as i16).wrapping_sub(16);
+        let start_x = (sprite_x as i16).wrapping_sub(8);
 
         for y in 0..TILE_HEIGHT_PX * sprite_size_multiplier {
             for x in 0..TILE_WIDTH_PX {
@@ -378,7 +384,7 @@ impl Ppu {
 
                 let color = tile.get_pixel(maybe_flipped_x, maybe_flipped_y);
 
-                if Color::from(color) == Color::Black {
+                if Color::from(color) == Color::White {
                     continue;
                 }
 
@@ -438,8 +444,8 @@ impl Ppu {
         let screen_y = current_line as usize;
 
         for screen_x in 0..GAMEBOY_WIDTH {
-            let scrolled_x = screen_x + mmu.read_byte(WX) as usize;
-            let scrolled_y = screen_y + mmu.read_byte(WY) as usize;
+            let scrolled_x = screen_x + mmu.read_byte(SCX) as usize;
+            let scrolled_y = screen_y + mmu.read_byte(SCY) as usize;
 
             let bg_map_x = scrolled_x % BG_MAP_SIZE;
             let bg_map_y = scrolled_y % BG_MAP_SIZE;
@@ -458,14 +464,19 @@ impl Ppu {
             let tile_data_mem_offset = if use_tile_set_zero {
                 tile_id as usize * TILE_BYTES
             } else {
-                ((tile_id as i8).wrapping_add(128) as usize).wrapping_mul(TILE_BYTES)
+                tile_id.wrapping_add(128) as usize * TILE_BYTES
             };
 
             let tile_data_line_offset = tile_pixel_y * 2;
 
-            let tile_line_data_start_address = tileset_address
-                .wrapping_add(tile_data_mem_offset)
-                .wrapping_add(tile_data_line_offset);
+            let tile_line_data_start_address = (tileset_address as u16)
+                .wrapping_add(tile_data_mem_offset as u16)
+                .wrapping_add(tile_data_line_offset as u16)
+                as usize;
+
+            if tile_line_data_start_address < 0x8000 && tile_data_line_offset >= 0x9000 {
+                println!("{tile_line_data_start_address:x}");
+            }
 
             // TODO: optimize
             let pixels_1 = mmu.read_byte(tile_line_data_start_address);
@@ -480,16 +491,16 @@ impl Ppu {
     }
 
     fn get_pixel_from_line(&self, byte1: u8, byte2: u8, pixel_index: usize) -> u8 {
-        (((byte2 >> (7 - pixel_index)) & 1) << 1) | ((byte1 >> (7 - pixel_index)) & 1)
+        (get_bit!(byte2, 7 - pixel_index) << 1) | (get_bit!(byte1, 7 - pixel_index))
     }
 
     fn load_palette(&self, mmu: &Mmu, address: usize) -> Palette {
         let val = mmu.read_byte(address);
 
         let color0 = val & 3;
-        let color1 = val >> 2 & 3;
-        let color2 = val >> 4 & 3;
-        let color3 = val >> 6 & 3;
+        let color1 = (val >> 2) & 3;
+        let color2 = (val >> 4) & 3;
+        let color3 = (val >> 6) & 3;
 
         Palette(color0.into(), color1.into(), color2.into(), color3.into())
     }
@@ -505,7 +516,7 @@ mod tests {
         let mut ppu = Ppu::default();
 
         ppu.current_mode = VideoMode::SearchingOam;
-        ppu.tick(TICKS_PER_SCANLINE_OAM + 1, &mut mmu);
+        ppu.tick(TICKS_PER_SCANLINE_OAM + 1, &mut mmu, false);
 
         assert_eq!(ppu.current_mode, VideoMode::TransferingData);
         assert_eq!(mmu.read_byte(LCD_STATUS_ADDRESS) & 0x3, 3);

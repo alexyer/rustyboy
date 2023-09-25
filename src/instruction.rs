@@ -43,6 +43,7 @@ pub enum InstructionType {
     AddAIndHl,
     AndR,
     AndD8,
+    AndIndHl,
     SbcR,
     SbcD8,
     SubD8,
@@ -83,6 +84,7 @@ pub enum InstructionType {
     Res5R,
     Res6R,
     Res7R,
+    ResIndHl,
     Set0R,
     Set1R,
     Set2R,
@@ -91,6 +93,7 @@ pub enum InstructionType {
     Set5R,
     Set6R,
     Set7R,
+    SetIndHl,
     RlR,
     Rlca,
     RlcR,
@@ -623,6 +626,9 @@ pub enum Opcode {
     #[instruction(regs = ["L"], instruction_type = "AndR", len = 0, cycles = [4])]
     AND_L = 0xa5,
 
+    #[instruction(regs = ["A", "HL"], instruction_type = "AndIndHl", len = 0, cycles = [8])]
+    AND_IND_HL = 0xa6,
+
     #[instruction(regs = ["A"], instruction_type = "AndR", len = 0, cycles = [4])]
     AND_A = 0xa7,
 
@@ -1049,6 +1055,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Bit0R", len = 0, cycles = [12])]
     BIT0L = 0x45,
 
+    #[instruction(regs = ["HL"], instruction_type = "BitIndHl", len = 0, cycles = [12])]
+    BIT0_IND_HL = 0x46,
+
     #[instruction(regs = ["A"], instruction_type = "Bit0R", len = 0, cycles = [12])]
     BIT0A = 0x47,
 
@@ -1113,7 +1122,7 @@ pub enum PrefixedOpcode {
     BIT3L = 0x5d,
 
     #[instruction(regs = ["A"], instruction_type = "Bit3R", len = 0, cycles = [12])]
-    BIT3A = 0x5e,
+    BIT3A = 0x5f,
 
     #[instruction(regs = ["B"], instruction_type = "Bit4R", len = 0, cycles = [12])]
     BIT4B = 0x60,
@@ -1219,6 +1228,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Res0R", len = 0, cycles = [12])]
     RES0L = 0x85,
+
+    #[instruction(regs = ["HL"], instruction_type = "ResIndHl", len = 0, cycles = [12])]
+    RES0_IND_HL = 0x86,
 
     #[instruction(regs = ["A"], instruction_type = "Res0R", len = 0, cycles = [12])]
     RES0A = 0x87,
@@ -1367,6 +1379,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "Res7R", len = 0, cycles = [12])]
     RES7L = 0xbd,
 
+    #[instruction(regs = ["HL"], instruction_type = "ResIndHl", len = 0, cycles = [12])]
+    RES7_IND_HL = 0xbe,
+
     #[instruction(regs = ["A"], instruction_type = "Res7R", len = 0, cycles = [12])]
     RES7A = 0xbf,
 
@@ -1387,6 +1402,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Set0R", len = 0, cycles = [12])]
     SET0L = 0xc5,
+
+    #[instruction(regs = ["HL"], instruction_type = "SetIndHl", len = 0, cycles = [12])]
+    SET0_IND_HL = 0xc6,
 
     #[instruction(regs = ["A"], instruction_type = "Set0R", len = 0, cycles = [12])]
     SET0A = 0xc7,
@@ -1534,6 +1552,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "Set7R", len = 0, cycles = [12])]
     SET7L = 0xfd,
+
+    #[instruction(regs = ["HL"], instruction_type = "SetIndHl", len = 0, cycles = [12])]
+    SET7_IND_HL = 0xfe,
 
     #[instruction(regs = ["A"], instruction_type = "Set7R", len = 0, cycles = [12])]
     SET7A = 0xff,

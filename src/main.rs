@@ -21,12 +21,19 @@ fn main() {
     let rom_path = std::env::var("ROM").expect("ROM path");
 
     let headless = {
-        let headless: usize = std::env::var("HEADLESS")
+        std::env::var("HEADLESS")
             .unwrap_or("0".to_string())
-            .parse()
-            .expect("HEADLESS must be 1 or 0");
+            .parse::<usize>()
+            .expect("HEADLESS must be 1 or 0")
+            != 0
+    };
 
-        headless != 0
+    let disable_spites = {
+        std::env::var("DISABLE_SPRITES")
+            .unwrap_or("0".to_string())
+            .parse::<usize>()
+            .expect("HEADLESS must be 1 or 0")
+            != 0
     };
 
     let log_file = std::env::var("LOG_FILE").ok();
@@ -56,5 +63,5 @@ fn main() {
     };
 
     let mut gb = GameBoy::new(boot_rom.as_deref(), &rom);
-    gb.run(headless, log_file);
+    gb.run(headless, disable_spites, log_file);
 }

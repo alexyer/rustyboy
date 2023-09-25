@@ -185,9 +185,16 @@ impl Mmu {
             // TODO(alexyer): Speed switch
             // KEY1
             0x4d => self.io[addr] = data,
+            // VBK
+            0x4f => self.io[addr] = data | 0b11111110,
 
             // ???
             0x50 => self.io[addr] = data,
+
+            // BCPS/BGPI
+            0x68 => self.io[addr] = data,
+            // BCPD/BGPD
+            0x69 => self.io[addr] = data,
 
             //IF
             0x0f => self.io[addr] = data,
@@ -235,6 +242,12 @@ impl Mmu {
             // TODO(alexyer): speed switch
             // KEY1
             0x4d => self.io[addr],
+            // VBK
+            0x4f => self.io[addr],
+            // BCPS/BGPI
+            0x68 => self.io[addr],
+            // BCPD/BGPD
+            0x69 => self.io[addr],
             // IF
             0x0f => self.io[addr],
             _ => panic!("unsupported IO read: 0x{addr:x}"),

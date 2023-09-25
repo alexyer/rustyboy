@@ -60,15 +60,20 @@ impl GameBoy {
         gb
     }
 
-    pub fn run(&mut self, headless: bool, log_file: Option<String>) {
+    pub fn run(&mut self, headless: bool, debug_disable_sprites: bool, log_file: Option<String>) {
         if headless {
-            self._run(&mut Headless::default(), log_file);
+            self._run(&mut Headless::default(), debug_disable_sprites, log_file);
         } else {
-            self._run(&mut Sdl::default(), log_file);
+            self._run(&mut Sdl::default(), debug_disable_sprites, log_file);
         };
     }
 
-    pub fn _run(&mut self, screen: &mut impl Screen, log_file_path: Option<String>) {
+    pub fn _run(
+        &mut self,
+        screen: &mut impl Screen,
+        debug_disable_sprites: bool,
+        log_file_path: Option<String>,
+    ) {
         let log_file = if let Some(path) = log_file_path {
             Some(File::create(path).unwrap())
         } else {
@@ -86,7 +91,7 @@ impl GameBoy {
                         .unwrap();
                 }
 
-                let (cycles, should_quit) = self.step(screen);
+                let (cycles, should_quit) = self.step(screen, debug_disable_sprites);
                 executed_cycles += cycles;
 
                 if should_quit {
@@ -94,26 +99,27 @@ impl GameBoy {
                 }
             }
 
-            if std::time::Instant::now().duration_since(start) < std::time::Duration::from_secs(1) {
-                std::thread::sleep(
-                    std::time::Duration::from_secs(1)
-                        - std::time::Instant::now().duration_since(start),
-                );
-            }
+            // if std::time::Instant::now().duration_since(start) < std::time::Duration::from_secs(1) {
+            //     std::thread::sleep(
+            //         std::time::Duration::from_secs(1)
+            //             - std::time::Instant::now().duration_since(start),
+            //     );
+            // }
         }
     }
 
-    pub fn step(&mut self, screen: &mut impl Screen) -> (usize, bool) {
+    pub fn step(&mut self, screen: &mut impl Screen, debug_disable_sprites: bool) -> (usize, bool) {
         let mut should_quit = false;
 
         let cycles = self.cpu.tick(&mut self.mmu);
-        self.ppu.tick(cycles, &mut self.mmu);
+        self.ppu.tick(cycles, &mut self.mmu, debug_disable_sprites);
         self.timer.tick(cycles, &mut self.mmu);
 
         if self.ppu.should_draw {
             should_quit = screen.poll_events();
 
             screen.update(self.ppu.buffer());
+            self.ppu.buffer_mut().reset();
 
             self.ppu.should_draw = false;
         }

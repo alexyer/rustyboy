@@ -26,4 +26,8 @@ impl FrameBuffer {
     pub fn as_slice(&self) -> &[Color] {
         &self.buffer
     }
+
+    pub fn reset(&mut self) {
+        self.buffer = vec![Color::White; self.width * self.height];
+    }
 }

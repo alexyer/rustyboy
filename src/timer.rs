@@ -92,8 +92,6 @@ impl Timer {
             } else {
                 mmu.write_byte(TIMA_ADDRESS, res);
             }
-
-            println!("{}", mmu.read_byte(TIMA_ADDRESS));
         }
     }
 

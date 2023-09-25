@@ -400,6 +400,7 @@ impl Cpu {
                     InstructionType::AddAIndHl => self.add_a_ind_hl(mmu),
                     InstructionType::AndR => self.and_r(regs[0].into()),
                     InstructionType::AndD8 => self.and_d8(&prepare_data!(instruction, 1)),
+                    InstructionType::AndIndHl => self.and_ind_hl(mmu),
                     InstructionType::SbcR => self.sbc_r(regs[0].into()),
                     InstructionType::SbcD8 => self.sbc_d8(&prepare_data!(instruction, 1)),
                     InstructionType::SubD8 => self.sub_d8(&prepare_data!(instruction, 1)),
@@ -494,6 +495,7 @@ impl Cpu {
                     InstructionType::Bit6R => self.bit_r(regs[0].into(), 6),
                     InstructionType::Bit7R => self.bit_r(regs[0].into(), 7),
                     InstructionType::BitIndHl => match instruction.opcode() {
+                        PrefixedOpcode::BIT0_IND_HL => self.bit_ind_hl(0, mmu),
                         PrefixedOpcode::BIT7_IND_HL => self.bit_ind_hl(7, mmu),
                         _ => unreachable!(),
                     },
@@ -505,6 +507,11 @@ impl Cpu {
                     InstructionType::Res5R => self.res_r(regs[0].into(), 5),
                     InstructionType::Res6R => self.res_r(regs[0].into(), 6),
                     InstructionType::Res7R => self.res_r(regs[0].into(), 7),
+                    InstructionType::ResIndHl => match instruction.opcode() {
+                        PrefixedOpcode::RES0_IND_HL => self.res_ind_hl(0, mmu),
+                        PrefixedOpcode::RES7_IND_HL => self.res_ind_hl(7, mmu),
+                        _ => unreachable!(),
+                    },
                     InstructionType::Set0R => self.set_r(regs[0].into(), 0),
                     InstructionType::Set1R => self.set_r(regs[0].into(), 1),
                     InstructionType::Set2R => self.set_r(regs[0].into(), 2),
@@ -513,6 +520,11 @@ impl Cpu {
                     InstructionType::Set5R => self.set_r(regs[0].into(), 5),
                     InstructionType::Set6R => self.set_r(regs[0].into(), 6),
                     InstructionType::Set7R => self.set_r(regs[0].into(), 7),
+                    InstructionType::SetIndHl => match instruction.opcode() {
+                        PrefixedOpcode::SET0_IND_HL => self.set_ind_hl(0, mmu),
+                        PrefixedOpcode::SET7_IND_HL => self.set_ind_hl(7, mmu),
+                        _ => unreachable!(),
+                    },
                     InstructionType::RlcR => self.rlc_r(regs[0].into()),
                     InstructionType::RrcR => self.rrc_r(regs[0].into()),
                     InstructionType::SlaR => self.sla_r(regs[0].into()),
@@ -753,6 +765,7 @@ impl Cpu {
 
                 Some(NormalInstruction::and_d8(data).into())
             }
+            Opcode::AND_IND_HL => Some(NormalInstruction::and_ind_hl(&[]).into()),
             Opcode::ADC_A => Some(NormalInstruction::adc_a(&[]).into()),
             Opcode::ADC_B => Some(NormalInstruction::adc_b(&[]).into()),
             Opcode::ADC_C => Some(NormalInstruction::adc_c(&[]).into()),
@@ -1080,6 +1093,9 @@ impl Cpu {
                     PrefixedOpcode::BIT7H => Some(PrefixedInstruction::bit7h(&[]).into()),
                     PrefixedOpcode::BIT7L => Some(PrefixedInstruction::bit7l(&[]).into()),
                     PrefixedOpcode::BIT7A => Some(PrefixedInstruction::bit7a(&[]).into()),
+                    PrefixedOpcode::BIT0_IND_HL => {
+                        Some(PrefixedInstruction::bit0_ind_hl(&[]).into())
+                    }
                     PrefixedOpcode::BIT7_IND_HL => {
                         Some(PrefixedInstruction::bit7_ind_hl(&[]).into())
                     }
@@ -1139,6 +1155,15 @@ impl Cpu {
                     PrefixedOpcode::RES7H => Some(PrefixedInstruction::res7h(&[]).into()),
                     PrefixedOpcode::RES7L => Some(PrefixedInstruction::res7l(&[]).into()),
                     PrefixedOpcode::RES7A => Some(PrefixedInstruction::res7a(&[]).into()),
+                    PrefixedOpcode::RES0_IND_HL => {
+                        Some(PrefixedInstruction::res0_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::RES7_IND_HL => {
+                        Some(PrefixedInstruction::res7_ind_hl(&[]).into())
+                    }
+                    PrefixedOpcode::SET0_IND_HL => {
+                        Some(PrefixedInstruction::set0_ind_hl(&[]).into())
+                    }
                     PrefixedOpcode::SET0B => Some(PrefixedInstruction::set0b(&[]).into()),
                     PrefixedOpcode::SET0C => Some(PrefixedInstruction::set0c(&[]).into()),
                     PrefixedOpcode::SET0D => Some(PrefixedInstruction::set0d(&[]).into()),
@@ -1195,6 +1220,9 @@ impl Cpu {
                     PrefixedOpcode::SET7H => Some(PrefixedInstruction::set7h(&[]).into()),
                     PrefixedOpcode::SET7L => Some(PrefixedInstruction::set7l(&[]).into()),
                     PrefixedOpcode::SET7A => Some(PrefixedInstruction::set7a(&[]).into()),
+                    PrefixedOpcode::SET7_IND_HL => {
+                        Some(PrefixedInstruction::set7_ind_hl(&[]).into())
+                    }
                     PrefixedOpcode::RR_B => Some(PrefixedInstruction::rr_b(&[]).into()),
                     PrefixedOpcode::RR_C => Some(PrefixedInstruction::rr_c(&[]).into()),
                     PrefixedOpcode::RR_D => Some(PrefixedInstruction::rr_d(&[]).into()),
@@ -1498,6 +1526,15 @@ impl Cpu {
 
     fn and_r(&mut self, reg: Reg) {
         let val = self.and8(self.regs.read_reg(Reg::A), self.regs.read_reg(reg));
+        self.regs.write_reg(Reg::A, val);
+    }
+
+    fn and_ind_hl(&mut self, mmu: &Mmu) {
+        let val = self.and8(
+            self.regs.read_reg(Reg::A),
+            mmu.read_byte(self.regs.read_reg16(Reg16::HL) as usize),
+        );
+
         self.regs.write_reg(Reg::A, val);
     }
 
@@ -1847,6 +1884,11 @@ impl Cpu {
         }
     }
 
+    fn res_ind_hl(&mut self, n: u8, mmu: &mut Mmu) {
+        let val = mmu.read_byte(self.regs.read_reg16(Reg16::HL) as usize) & !(1 << n);
+        mmu.write_byte(self.regs.read_reg16(Reg16::HL) as usize, val);
+    }
+
     fn bit_r(&mut self, reg: Reg, n: u8) {
         self.clear_n();
         self.set_h();
@@ -1861,6 +1903,11 @@ impl Cpu {
     fn res_r(&mut self, reg: Reg, n: u8) {
         let val = self.regs.read_reg(reg) & !(1 << n);
         self.regs.write_reg(reg, val);
+    }
+
+    fn set_ind_hl(&mut self, n: u8, mmu: &mut Mmu) {
+        let val = mmu.read_byte(self.regs.read_reg16(Reg16::HL) as usize) | (1 << n);
+        mmu.write_byte(self.regs.read_reg16(Reg16::HL) as usize, val);
     }
 
     fn set_r(&mut self, reg: Reg, n: u8) {
@@ -2860,6 +2907,25 @@ mod tests {
         };
     }
 
+    macro_rules! test_res_ind_hl {
+        ($mnemonic:expr, $i:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.regs.write_reg16(Reg16::HL, 0xdead);
+                mmu.write_byte(0xdead, 0 | 1 << $i);
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
+                assert_eq!(mmu.read_byte(0xdead), 0);
+            }
+        };
+    }
+
     macro_rules! test_set {
         ($r:expr, $mnemonic:expr, $i:expr, $name:ident) => {
             #[test]
@@ -2874,6 +2940,25 @@ mod tests {
                 assert_eq!(cycles, 12);
                 assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
                 assert_eq!(cpu.regs.read_reg($r), 0 | 1 << $i);
+            }
+        };
+    }
+
+    macro_rules! test_set_ind_hl {
+        ($mnemonic:expr, $i:expr, $name:ident) => {
+            #[test]
+            fn $name() {
+                let mut cpu = Cpu::default();
+                let mut mmu = Mmu::default();
+                cpu.regs.write_reg16(Reg16::HL, 0xdead);
+                mmu.write_byte(0xdead, 0);
+                mmu.write_slice($mnemonic, 0);
+
+                let cycles = cpu.exec_instruction(&mut mmu);
+
+                assert_eq!(cycles, 12);
+                assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
+                assert_eq!(mmu.read_byte(0xdead), 0 | 1 << $i);
             }
         };
     }
@@ -3421,7 +3506,26 @@ mod tests {
     }
 
     #[test]
-    fn test_subw_ind_hl() {
+    fn test_sub_ind_hl() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.regs.write_reg(Reg::A, 10);
+        cpu.regs.write_reg16(Reg16::HL, 1);
+        mmu.write_slice(&[0xae, 0xa], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.regs.read_reg16(Reg16::PC), 1);
+        assert_eq!(cpu.regs.read_reg(Reg::A), 0);
+        assert!(cpu.z());
+        assert!(!cpu.n());
+        assert!(!cpu.h());
+        assert!(!cpu.c());
+    }
+
+    #[test]
+    fn test_and_ind_hl() {
         let mut cpu = Cpu::default();
         let mut mmu = Mmu::default();
         cpu.regs.write_reg(Reg::A, 10);
@@ -3896,7 +4000,7 @@ mod tests {
     test_bit!(Reg::E, &[0xcb, 0x5b], 3, test_bit3e);
     test_bit!(Reg::H, &[0xcb, 0x5c], 3, test_bit3h);
     test_bit!(Reg::L, &[0xcb, 0x5d], 3, test_bit3l);
-    test_bit!(Reg::A, &[0xcb, 0x5e], 3, test_bit3a);
+    test_bit!(Reg::A, &[0xcb, 0x5f], 3, test_bit3a);
 
     test_bit!(Reg::B, &[0xcb, 0x60], 4, test_bit4b);
     test_bit!(Reg::C, &[0xcb, 0x61], 4, test_bit4c);
@@ -3930,6 +4034,7 @@ mod tests {
     test_bit!(Reg::L, &[0xcb, 0x7d], 7, test_bit7l);
     test_bit!(Reg::A, &[0xcb, 0x7f], 7, test_bit7a);
 
+    test_bit_ind_hl!(&[0xcb, 0x46], 0, test_bit0_ind_hl);
     test_bit_ind_hl!(&[0xcb, 0x7e], 7, test_bit7_ind_hl);
 
     test_res!(Reg::B, &[0xcb, 0x80], 0, test_res0b);
@@ -3987,6 +4092,9 @@ mod tests {
     test_res!(Reg::H, &[0xcb, 0xb4], 6, test_res6h);
     test_res!(Reg::L, &[0xcb, 0xb5], 6, test_res6l);
     test_res!(Reg::A, &[0xcb, 0xb7], 6, test_res6a);
+
+    test_res_ind_hl!(&[0xcb, 0x86], 0, test_res0_ind_hl);
+    test_res_ind_hl!(&[0xcb, 0xbe], 7, test_res7_ind_hl);
 
     test_res!(Reg::B, &[0xcb, 0xb8], 7, test_res7b);
     test_res!(Reg::C, &[0xcb, 0xb9], 7, test_res7c);
@@ -4059,6 +4167,9 @@ mod tests {
     test_set!(Reg::H, &[0xcb, 0xfc], 7, test_set7h);
     test_set!(Reg::L, &[0xcb, 0xfd], 7, test_set7l);
     test_set!(Reg::A, &[0xcb, 0xff], 7, test_set7a);
+
+    test_set_ind_hl!(&[0xcb, 0xc6], 0, test_set0_ind_hl);
+    test_set_ind_hl!(&[0xcb, 0xfe], 7, test_set7_ind_hl);
 
     test_rlc_r!(Reg::A, &[0xcb, 0x07], test_rlc_a);
     test_rlc_r!(Reg::B, &[0xcb, 0x00], test_rlc_b);
