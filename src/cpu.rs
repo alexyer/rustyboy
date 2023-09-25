@@ -393,6 +393,7 @@ impl Cpu {
                     InstructionType::DecIndHl => self.dec_ind_hl(mmu),
                     InstructionType::AdcR => self.adc_r(regs[0].into()),
                     InstructionType::AdcD8 => self.adc_d8(&prepare_data!(instruction, 1)),
+                    InstructionType::AdcIndHl => self.adc_ind_hl(mmu),
                     InstructionType::AddR => self.add_r(regs[0].into()),
                     InstructionType::AddD8 => self.add_d8(&prepare_data!(instruction, 1)),
                     InstructionType::AddRrRr => self.add_hl_rr(regs[1].into()),
@@ -773,6 +774,7 @@ impl Cpu {
             Opcode::ADC_E => Some(NormalInstruction::adc_e(&[]).into()),
             Opcode::ADC_H => Some(NormalInstruction::adc_h(&[]).into()),
             Opcode::ADC_L => Some(NormalInstruction::adc_l(&[]).into()),
+            Opcode::ADC_IND_HL => Some(NormalInstruction::adc_ind_hl(&[]).into()),
             Opcode::ADC_D8 => {
                 let data = &[mmu.read_byte(pc as usize)];
                 self.regs.write_reg16(Reg16::PC, pc + 1);
@@ -1681,6 +1683,15 @@ impl Cpu {
     fn adc_d8(&mut self, data: &[u8; 1]) {
         let res = self.adc8(self.regs.read_reg(Reg::A), data[0]);
         self.regs.write_reg(Reg::A, res);
+    }
+
+    fn adc_ind_hl(&mut self, mmu: &Mmu) {
+        let val = self.adc8(
+            self.regs.read_reg(Reg::A),
+            mmu.read_byte(self.regs.read_reg16(Reg16::HL) as usize),
+        );
+
+        self.regs.write_reg(Reg::A, val);
     }
 
     fn adc_r(&mut self, reg: Reg) {
@@ -3648,6 +3659,26 @@ mod tests {
         assert_eq!(cycles, 8);
         assert_eq!(cpu.regs.read_reg16(Reg16::PC), 2);
         assert_eq!(cpu.regs.read_reg(Reg::A), 21);
+        assert!(!cpu.z());
+        assert!(!cpu.c());
+        assert!(!cpu.n());
+        assert!(cpu.h());
+    }
+
+    #[test]
+    fn test_adc_ind_hl() {
+        let mut cpu = Cpu::default();
+        let mut mmu = Mmu::default();
+        cpu.regs.write_reg(Reg::A, 10);
+        cpu.regs.write_reg16(Reg16::HL, 1);
+
+        mmu.write_slice(&[0x8e, 0xa], 0);
+
+        let cycles = cpu.exec_instruction(&mut mmu);
+
+        assert_eq!(cycles, 8);
+        assert_eq!(cpu.regs.read_reg16(Reg16::PC), 1);
+        assert_eq!(cpu.regs.read_reg(Reg::A), 20);
         assert!(!cpu.z());
         assert!(!cpu.c());
         assert!(!cpu.n());

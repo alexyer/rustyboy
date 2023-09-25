@@ -36,6 +36,7 @@ pub enum InstructionType {
     DecIndHl,
     AdcR,
     AdcD8,
+    AdcIndHl,
     AddR,
     AddD8,
     AddRrRr,
@@ -559,6 +560,9 @@ pub enum Opcode {
 
     #[instruction(regs = ["L"], instruction_type = "AdcR", len = 0, cycles = [4])]
     ADC_L = 0x8d,
+
+    #[instruction(regs = ["A, HL"], instruction_type = "AdcIndHl", len = 0, cycles = [8])]
+    ADC_IND_HL = 0x8e,
 
     #[instruction(regs = ["A"], instruction_type = "AdcR", len = 0, cycles = [4])]
     ADC_A = 0x8f,
