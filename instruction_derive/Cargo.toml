@@ -2,7 +2,9 @@
 name = "rustyboy_instruction_derive"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 authors = ["Oleksandr Yermakov <olexander.yermakov@gmail.com>"]
+description = "Rustyboy CPU instruction derive"
 
 [lib]
 name = "rustyboy_instruction_derive"
