@@ -98,9 +98,11 @@ pub enum InstructionType {
     RlR,
     Rlca,
     RlcR,
+    RlcIndHl,
     RrR,
     Rrca,
     RrcR,
+    RrcIndHl,
     Rla,
     Rra,
     Rst,
@@ -892,6 +894,9 @@ pub enum PrefixedOpcode {
     #[instruction(regs = ["L"], instruction_type = "RlcR", len = 0, cycles = [12])]
     RLC_L = 0x05,
 
+    #[instruction(instruction_type = "RlcIndHl", len = 0, cycles = [12])]
+    RLC_IND_HL = 0x06,
+
     #[instruction(regs = ["A"], instruction_type = "RlcR", len = 0, cycles = [12])]
     RLC_A = 0x07,
 
@@ -912,6 +917,9 @@ pub enum PrefixedOpcode {
 
     #[instruction(regs = ["L"], instruction_type = "RrcR", len = 0, cycles = [12])]
     RRC_L = 0x0d,
+
+    #[instruction(instruction_type = "RrcIndHl", len = 0, cycles = [12])]
+    RRC_IND_HL = 0x0e,
 
     #[instruction(regs = ["A"], instruction_type = "RrcR", len = 0, cycles = [12])]
     RRC_A = 0x0f,
