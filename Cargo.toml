@@ -10,6 +10,6 @@ description = "Gameboy emulator"
 debug = true
 
 [dependencies]
-rustyboy_instruction_derive = { version = "*", path = "./instruction_derive" }
+rustyboy_instruction_derive = { version = "0.1.0", path = "./instruction_derive" }
 num_enum = "0.7.0"
 sdl2 = "0.35.2"
