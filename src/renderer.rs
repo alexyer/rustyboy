@@ -18,7 +18,7 @@ const PIXEL_SIZE: usize = 2;
 const WIDTH: usize = GAMEBOY_WIDTH * PIXEL_SIZE;
 const HEIGHT: usize = GAMEBOY_HEIGHT * PIXEL_SIZE;
 
-pub trait Screen {
+pub trait Renderer {
     fn update(&mut self, frame_buffer: &FrameBuffer);
     fn poll_events(&mut self) -> Option<GameBoyEvent>;
 }
@@ -26,7 +26,7 @@ pub trait Screen {
 #[derive(Default)]
 pub struct Headless;
 
-impl Screen for Headless {
+impl Renderer for Headless {
     fn update(&mut self, _frame_buffer: &FrameBuffer) {}
 
     fn poll_events(&mut self) -> Option<GameBoyEvent> {
@@ -75,7 +75,7 @@ impl Default for Sdl {
     }
 }
 
-impl Screen for Sdl {
+impl Renderer for Sdl {
     fn update(&mut self, frame_buffer: &FrameBuffer) {
         self.texture
             .with_lock(None, |buffer, pitch| {

@@ -9,7 +9,7 @@ mod input;
 mod instruction;
 mod mmu;
 mod ppu;
-mod screen;
+mod renderer;
 mod timer;
 mod utils;
 

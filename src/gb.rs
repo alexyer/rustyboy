@@ -10,7 +10,7 @@ use crate::{
     input::{Button, Input},
     mmu::Mmu,
     ppu::Ppu,
-    screen::{Headless, Screen, Sdl},
+    renderer::{Headless, Renderer, Sdl},
     timer::Timer,
 };
 
@@ -82,7 +82,7 @@ impl GameBoy {
 
     pub fn _run(
         &mut self,
-        screen: &mut impl Screen,
+        renderer: &mut impl Renderer,
         debug_disable_sprites: bool,
         log_file_path: Option<String>,
     ) {
@@ -99,7 +99,7 @@ impl GameBoy {
                         .unwrap();
                 }
 
-                let (cycles, should_quit) = self.step(screen, debug_disable_sprites);
+                let (cycles, should_quit) = self.step(renderer, debug_disable_sprites);
                 executed_cycles += cycles;
 
                 if should_quit {
@@ -116,7 +116,11 @@ impl GameBoy {
         }
     }
 
-    pub fn step(&mut self, screen: &mut impl Screen, debug_disable_sprites: bool) -> (usize, bool) {
+    pub fn step(
+        &mut self,
+        renderer: &mut impl Renderer,
+        debug_disable_sprites: bool,
+    ) -> (usize, bool) {
         let mut should_quit = false;
 
         self.input.tick(&mut self.mmu);
@@ -125,14 +129,14 @@ impl GameBoy {
         self.timer.tick(cycles, &mut self.mmu);
 
         if self.ppu.should_draw {
-            match screen.poll_events() {
+            match renderer.poll_events() {
                 Some(GameBoyEvent::Quit) => should_quit = true,
                 Some(GameBoyEvent::ButtonPressed(button)) => self.input.button_pressed(&button),
                 Some(GameBoyEvent::ButtonReleased(button)) => self.input.button_released(&button),
                 None => (),
             }
 
-            screen.update(self.ppu.buffer());
+            renderer.update(self.ppu.buffer());
             self.ppu.buffer_mut().reset();
 
             self.ppu.should_draw = false;
