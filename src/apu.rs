@@ -323,7 +323,7 @@ impl PwmChannel {
 
             mmu.write_byte(self.nrxx.nrx4_address(), (nr14 & 0xf8) as u8 | high_period);
 
-            mmu.write_byte(self.nrxx.nrx3_address(), new_period as u8 & 0xff);
+            mmu.write_byte(self.nrxx.nrx3_address(), new_period as u8);
         }
     }
 }
