@@ -9,6 +9,7 @@ const NR44_ADDRESS: usize = 0xff23;
 const NR52_ADDRESS: usize = 0xff26;
 
 const CYCLES_PER_64HZ: usize = CYCLES_PER_SEC / 64;
+const CYCLES_PER_128HZ: usize = CYCLES_PER_SEC / 128;
 const CYCLES_PER_256HZ: usize = CYCLES_PER_SEC / 256;
 const CYCLES_PER_PWM_DIV_TICK: usize = 4;
 
@@ -127,34 +128,38 @@ impl Div<f32> for Sample {
 
 pub struct PwmChannel {
     on: bool,
-    cycle_counter: usize,
+
+    duty_counter: u8,
+    envelope_counter: usize,
+    length_timer_counter: usize,
+    period_counter: usize,
+    sweep_counter: usize,
 
     duty: PwmWaveDuty,
-    duty_counter: u8,
-
     length_timer: u8,
-
     period: u16,
-    period_counter: usize,
-
-    envelope_counter: usize,
     volume: u8,
 
+    sweep_available: bool,
     nrxx: NrXxAddress,
 }
 
 impl PwmChannel {
-    pub fn new(nrx4_address: usize) -> Self {
+    pub fn new(nrx4_address: usize, sweep_available: bool) -> Self {
         Self {
             on: false,
-            cycle_counter: 0,
-            duty: PwmWaveDuty::Duty0,
+
             duty_counter: 0,
+            envelope_counter: 0,
+            length_timer_counter: 0,
+            period_counter: 0,
+            sweep_counter: 0,
+
+            duty: PwmWaveDuty::Duty0,
             length_timer: 0,
             period: 0,
-            period_counter: 0,
-            envelope_counter: 0,
             volume: 0,
+            sweep_available,
             nrxx: nrx4_address.into(),
         }
     }
@@ -179,6 +184,10 @@ impl PwmChannel {
         for _ in 0..cycles {
             self.update_duty_counter(1, mmu);
             self.update_envelope(1, mmu);
+
+            if self.sweep_available {
+                self.update_sweep(1, mmu);
+            }
 
             samples.push(self.get_current_sample());
         }
@@ -270,15 +279,51 @@ impl PwmChannel {
     }
 
     fn update_length_timer(&mut self, cycles: usize) {
-        self.cycle_counter += cycles;
+        self.length_timer_counter += cycles;
 
-        if self.cycle_counter >= CYCLES_PER_256HZ {
-            self.cycle_counter %= CYCLES_PER_256HZ;
+        if self.length_timer_counter >= CYCLES_PER_256HZ {
+            self.length_timer_counter %= CYCLES_PER_256HZ;
             self.length_timer += 1;
 
             if self.length_timer == 64 {
                 self.on = false;
             }
+        }
+    }
+
+    fn update_sweep(&mut self, cycles: usize, mmu: &mut Mmu) {
+        let pace = ((mmu.read_byte(self.nrxx.nrx0_address()) & 0xf0) >> 4) as usize;
+
+        if pace == 0 {
+            return;
+        }
+
+        self.sweep_counter += cycles;
+
+        if self.sweep_counter >= pace * CYCLES_PER_128HZ {
+            self.sweep_counter %= pace * CYCLES_PER_128HZ;
+
+            let period_decrease = mmu.check_bit(self.nrxx.nrx0_address(), 3);
+            let step = (mmu.read_byte(self.nrxx.nrx0_address()) & 0x7) as u32;
+
+            let nr14 = mmu.read_byte(self.nrxx.nrx4_address()) as u16;
+            let period = ((nr14 & 0x7) << 8) | mmu.read_byte(self.nrxx.nrx3_address()) as u16;
+
+            let new_period = if period_decrease {
+                period - period / 2u16.pow(step)
+            } else {
+                period + period / 2u16.pow(step)
+            };
+
+            if new_period > 0x7ff {
+                self.on = false;
+            }
+
+            let high_period = ((new_period & 0x300) >> 8) as u8;
+
+            mmu.write_byte(self.nrxx.nrx4_address(), (nr14 & 0xf8) as u8 | high_period);
+
+            mmu.write_byte(self.nrxx.nrx3_address(), new_period as u8 & 0xff);
         }
     }
 }
@@ -346,8 +391,8 @@ macro_rules! set_nr52 {
 impl Default for Apu {
     fn default() -> Self {
         Self {
-            channel1: PwmChannel::new(NR14_ADDRESS),
-            channel2: PwmChannel::new(NR24_ADDRESS),
+            channel1: PwmChannel::new(NR14_ADDRESS, true),
+            channel2: PwmChannel::new(NR24_ADDRESS, false),
             channel3: WaveChannel::new(NR34_ADDRESS),
             channel4: NoiseChannel::new(NR24_ADDRESS),
         }
@@ -456,7 +501,7 @@ mod tests {
     #[test]
     fn test_pwm_channel_length_timer() {
         let mut mmu = Mmu::default();
-        let mut channel = PwmChannel::new(NR14_ADDRESS);
+        let mut channel = PwmChannel::new(NR14_ADDRESS, true);
 
         mmu.write_byte(NR14_ADDRESS, 0xff);
         mmu.write_byte(NR14_ADDRESS - 3, 0x3f);
