@@ -1,3 +1,5 @@
+use std::ops::{Add, Div};
+
 use crate::{gb::CYCLES_PER_SEC, mmu::Mmu};
 
 const NR14_ADDRESS: usize = 0xff14;
@@ -102,6 +104,26 @@ impl From<Sample> for f32 {
     }
 }
 
+impl Add for Sample {
+    type Output = Sample;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Sample {
+            value: self.value + rhs.value,
+        }
+    }
+}
+
+impl Div<f32> for Sample {
+    type Output = Sample;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Sample {
+            value: self.value / rhs,
+        }
+    }
+}
+
 pub struct PwmChannel {
     on: bool,
     cycle_counter: usize,
@@ -151,7 +173,7 @@ impl PwmChannel {
         for _ in 0..cycles {
             self.update_duty_counter(1, mmu);
             samples.push(Sample::from(
-                (self.duty.as_slice()[self.duty_counter as usize] / 0xf) as f32 * 20.0,
+                (self.duty.as_slice()[self.duty_counter as usize] / 0xf) as f32,
             ));
         }
 
@@ -310,7 +332,15 @@ impl Apu {
         let channel3_state = self.channel3.tick(cycles, mmu);
         self.set_channel3_to(channel3_state.on, mmu);
 
-        channel1_state.samples
+        self.mix(channel1_state.samples, channel2_state.samples)
+    }
+
+    pub fn mix(&self, channel1: Vec<Sample>, channel2: Vec<Sample>) -> Vec<Sample> {
+        channel1
+            .into_iter()
+            .zip(channel2.into_iter())
+            .map(|(sample1, sample2)| (sample1 + sample2) / 2.0)
+            .collect()
     }
 }
 

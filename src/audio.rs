@@ -16,7 +16,9 @@ pub trait Audio {
 pub struct NoAudio;
 
 impl Audio for NoAudio {
-    fn update(&mut self, _samples: Vec<Sample>) {}
+    fn update(&mut self, _samples: Vec<Sample>) {
+        return;
+    }
 
     fn is_full(&self) -> bool {
         false
