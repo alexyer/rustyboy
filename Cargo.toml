@@ -13,3 +13,4 @@ debug = true
 rustyboy_instruction_derive = { version = "0.1.0", path = "./instruction_derive" }
 num_enum = "0.7.0"
 sdl2 = "0.35.2"
+rodio = { version = "0.17.1", default-features = false }

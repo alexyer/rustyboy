@@ -1,10 +1,8 @@
-use std::{
-    fs::File,
-    io::Write,
-    time::{Duration, Instant},
-};
+use std::{fs::File, io::Write};
 
 use crate::{
+    apu::Apu,
+    audio::{Audio, NoAudio, Rodio},
     cartridge::load_cartridge,
     cpu::{Cpu, Reg, Reg16},
     input::{Button, Input},
@@ -23,6 +21,7 @@ pub enum GameBoyEvent {
 }
 
 pub struct GameBoy {
+    apu: Apu,
     cpu: Cpu,
     input: Input,
     mmu: Mmu,
@@ -41,6 +40,7 @@ impl GameBoy {
 
         if let Some(boot_rom) = boot_rom {
             Self {
+                apu: Apu::default(),
                 cpu: Cpu::default(),
                 input: Input::default(),
                 mmu: Mmu::new(Some(boot_rom.to_vec()), cartridge),
@@ -49,6 +49,7 @@ impl GameBoy {
             }
         } else {
             let mut gb = Self {
+                apu: Apu::default(),
                 cpu: Cpu::default(),
                 input: Input::default(),
                 mmu: Mmu::new(None, cartridge),
@@ -74,44 +75,39 @@ impl GameBoy {
 
     pub fn run(&mut self, headless: bool, debug_disable_sprites: bool, log_file: Option<String>) {
         if headless {
-            self._run(&mut Headless, debug_disable_sprites, log_file);
+            self._run(&mut Headless, &mut NoAudio, debug_disable_sprites, log_file);
         } else {
-            self._run(&mut Sdl::default(), debug_disable_sprites, log_file);
+            self._run(
+                &mut Sdl::default(),
+                &mut Rodio::new(),
+                debug_disable_sprites,
+                log_file,
+            );
         };
     }
 
     pub fn _run(
         &mut self,
         renderer: &mut impl Renderer,
+        audio: &mut impl Audio,
         debug_disable_sprites: bool,
         log_file_path: Option<String>,
     ) {
         let log_file = log_file_path.map(|path| File::create(path).unwrap());
 
         loop {
-            let start = std::time::Instant::now();
-
-            let mut executed_cycles = 0;
-            while executed_cycles <= 10000 {
+            if !audio.is_full() {
                 if let Some(mut log_file) = log_file.as_ref() {
                     log_file
                         .write_all(self.cpu.log_state(&self.mmu).as_bytes())
                         .unwrap();
                 }
 
-                let (cycles, should_quit) = self.step(renderer, debug_disable_sprites);
-                executed_cycles += cycles;
+                let (_, should_quit) = self.step(renderer, audio, debug_disable_sprites);
 
                 if should_quit {
                     return;
                 }
-            }
-
-            let exec_time = Instant::now().duration_since(start);
-            let expected_time = Duration::from_nanos(200) * executed_cycles as u32;
-
-            if exec_time < expected_time {
-                std::thread::sleep(expected_time - exec_time);
             }
         }
     }
@@ -119,6 +115,7 @@ impl GameBoy {
     pub fn step(
         &mut self,
         renderer: &mut impl Renderer,
+        audio: &mut impl Audio,
         debug_disable_sprites: bool,
     ) -> (usize, bool) {
         let mut should_quit = false;
@@ -127,6 +124,9 @@ impl GameBoy {
         let cycles = self.cpu.tick(&mut self.mmu);
         self.ppu.tick(cycles, &mut self.mmu, debug_disable_sprites);
         self.timer.tick(cycles, &mut self.mmu);
+        let samples = self.apu.tick(cycles, &mut self.mmu);
+
+        audio.update(samples);
 
         if self.ppu.should_draw {
             match renderer.poll_events() {

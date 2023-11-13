@@ -157,8 +157,50 @@ impl Mmu {
             0x06 => self.io[addr] = data,
             // TAC
             0x07 => self.io[addr] = data,
-            // TODO(alexyer): implement sound.
-            addr if (0x10..0x40).contains(&addr) => (),
+            // NR10
+            0x10 => self.io[addr] = data,
+            // NR11
+            0x11 => self.io[addr] = data,
+            // NR12
+            0x12 => self.io[addr] = data,
+            // NR13
+            0x13 => self.io[addr] = data,
+            // NR14
+            0x14 => self.io[addr] = data,
+            // NR21
+            0x16 => self.io[addr] = data,
+            // NR22
+            0x17 => self.io[addr] = data,
+            // NR23
+            0x18 => self.io[addr] = data,
+            // NR24
+            0x19 => self.io[addr] = data,
+            // NR30
+            0x1a => self.io[addr] = data,
+            // NR31
+            0x1b => self.io[addr] = data,
+            // NR32
+            0x1c => self.io[addr] = data,
+            // NR33
+            0x1d => self.io[addr] = data,
+            // NR34
+            0x1e => self.io[addr] = data,
+            // NR41
+            0x20 => self.io[addr] = data,
+            // NR42
+            0x21 => self.io[addr] = data,
+            // NR43
+            0x22 => self.io[addr] = data,
+            // NR44
+            0x23 => self.io[addr] = data,
+            // NR50
+            0x24 => self.io[addr] = data,
+            // NR51
+            0x25 => self.io[addr] = data,
+            // NR52
+            0x26 => self.io[addr] = data,
+            // Wave RAM
+            addr if (0x30..0x40).contains(&addr) => self.io[addr] = data,
             // LCDC
             0x40 => self.io[addr] = data,
             // STAT
@@ -215,8 +257,50 @@ impl Mmu {
             0x06 => self.io[addr],
             // TAC
             0x07 => self.io[addr],
-            // TODO(alexyer): implement sound.
-            addr if (0x10..0x40).contains(&addr) => self.io[addr],
+            // NR10
+            0x10 => self.io[addr],
+            // NR11
+            0x11 => self.io[addr],
+            // NR12
+            0x12 => self.io[addr],
+            // NR13
+            0x13 => self.io[addr],
+            // NR14
+            0x14 => self.io[addr],
+            // NR21
+            0x16 => self.io[addr],
+            // NR22
+            0x17 => self.io[addr],
+            // NR23
+            0x18 => self.io[addr],
+            // NR24
+            0x19 => self.io[addr],
+            // NR30
+            0x1a => self.io[addr],
+            // NR31
+            0x1b => self.io[addr],
+            // NR32
+            0x1c => self.io[addr],
+            // NR33
+            0x1d => self.io[addr],
+            // NR34
+            0x1e => self.io[addr],
+            // NR41
+            0x20 => self.io[addr],
+            // NR42
+            0x21 => self.io[addr],
+            // NR43
+            0x22 => self.io[addr],
+            // NR44
+            0x23 => self.io[addr],
+            // NR50
+            0x24 => self.io[addr],
+            // NR51
+            0x25 => self.io[addr],
+            // NR52
+            0x26 => self.io[addr],
+            // Wave RAM
+            addr if (0x30..0x40).contains(&addr) => self.io[addr],
             // LCDC
             0x40 => self.io[addr],
             // STAT

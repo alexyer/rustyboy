@@ -46,7 +46,7 @@ impl Default for Sdl {
         let video_subsystem = sdl_context.video().unwrap();
 
         let window = video_subsystem
-            .window("Rustyboy16", WIDTH as u32, HEIGHT as u32)
+            .window("Rustyboy", WIDTH as u32, HEIGHT as u32)
             .position_centered()
             .opengl()
             .build()

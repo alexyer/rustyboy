@@ -1,5 +1,7 @@
 extern crate rustyboy_instruction_derive;
 
+mod apu;
+mod audio;
 mod cartridge;
 mod cpu;
 mod errors;
