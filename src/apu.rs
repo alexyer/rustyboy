@@ -8,6 +8,7 @@ const NR34_ADDRESS: usize = 0xff1e;
 const NR44_ADDRESS: usize = 0xff23;
 const NR52_ADDRESS: usize = 0xff26;
 
+const CYCLES_PER_64HZ: usize = CYCLES_PER_SEC / 64;
 const CYCLES_PER_256HZ: usize = CYCLES_PER_SEC / 256;
 const CYCLES_PER_PWM_DIV_TICK: usize = 4;
 
@@ -136,6 +137,9 @@ pub struct PwmChannel {
     period: u16,
     period_counter: usize,
 
+    envelope_counter: usize,
+    volume: u8,
+
     nrxx: NrXxAddress,
 }
 
@@ -149,6 +153,8 @@ impl PwmChannel {
             length_timer: 0,
             period: 0,
             period_counter: 0,
+            envelope_counter: 0,
+            volume: 0,
             nrxx: nrx4_address.into(),
         }
     }
@@ -172,9 +178,9 @@ impl PwmChannel {
 
         for _ in 0..cycles {
             self.update_duty_counter(1, mmu);
-            samples.push(Sample::from(
-                (self.duty.as_slice()[self.duty_counter as usize] / 0xf) as f32,
-            ));
+            self.update_envelope(1, mmu);
+
+            samples.push(self.get_current_sample());
         }
 
         if mmu.check_bit(self.nrxx.nrx4_address(), 6) {
@@ -184,6 +190,17 @@ impl PwmChannel {
         ChannelState {
             on: self.on,
             samples,
+        }
+    }
+
+    fn get_current_sample(&self) -> Sample {
+        let sample = self.duty.as_slice()[self.duty_counter as usize];
+
+        let amplified_sample = sample * self.volume;
+        let normalized_sample = amplified_sample as f32 / 2.0;
+
+        Sample {
+            value: normalized_sample,
         }
     }
 
@@ -197,6 +214,9 @@ impl PwmChannel {
         self.duty_counter = 0;
         self.length_timer = mmu.read_byte(self.nrxx.nrx1_address()) & 0x3f;
         self.update_period(mmu);
+
+        self.volume = (mmu.read_byte(self.nrxx.nrx2_address()) & 0xf0) >> 4;
+        self.envelope_counter = 0;
 
         mmu.set_bit_to(self.nrxx.nrx4_address(), 7, false);
     }
@@ -217,6 +237,34 @@ impl PwmChannel {
                 self.update_period(mmu);
                 self.duty_counter += 1;
                 self.duty_counter %= 8;
+            }
+        }
+    }
+
+    fn update_envelope(&mut self, cycles: usize, mmu: &Mmu) {
+        let sweep_pace = (mmu.read_byte(self.nrxx.nrx2_address()) & 0x7) as usize;
+
+        if sweep_pace == 0 {
+            return;
+        }
+
+        self.envelope_counter += cycles;
+
+        if self.volume == 0 {
+            self.on = false;
+            return;
+        }
+
+        if self.envelope_counter >= sweep_pace * CYCLES_PER_64HZ {
+            self.envelope_counter %= sweep_pace * CYCLES_PER_64HZ;
+
+            let env_increase = mmu.check_bit(self.nrxx.nrx2_address(), 3);
+
+            if !env_increase {
+                self.volume -= 1;
+            } else {
+                self.volume += 1;
+                self.volume %= 0xf;
             }
         }
     }
