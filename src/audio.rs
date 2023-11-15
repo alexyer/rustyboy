@@ -37,7 +37,7 @@ impl Rodio {
 
         let _audio_sink = Sink::try_new(&_audio_stream_handle).unwrap();
 
-        _audio_sink.append(samples_buffer.clone());
+        _audio_sink.append(samples_buffer.clone().amplify(0.1));
 
         _audio_sink.play();
 

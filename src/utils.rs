@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! check_bit {
     ($val:expr, $i:expr) => {
-        (($val & 1 << $i) != 0)
+        ($val & 1 << $i != 0)
     };
 }
 
@@ -13,5 +13,12 @@ macro_rules! get_bit {
         } else {
             0
         }
+    };
+}
+
+#[macro_export]
+macro_rules! set_bit {
+    ($val:expr, $i:expr, $bit:expr) => {
+        $val | $bit << $i
     };
 }
