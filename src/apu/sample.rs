@@ -16,7 +16,7 @@ impl Sample {
         }
 
         let unit_sample = f32::from(sample) / 15.0;
-        let scaled_sample = unit_sample * 2.0 - 1.0;
+        let scaled_sample = unit_sample * 2.0;
 
         Self {
             value: scaled_sample,

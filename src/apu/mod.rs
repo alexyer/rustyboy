@@ -1,14 +1,16 @@
 mod channel;
+mod noise_channel;
 mod pwm_channel;
 mod sample;
 mod wave_channel;
 
 pub use sample::Sample;
 
-use crate::{gb::CYCLES_PER_SEC, mmu::Mmu};
+use crate::{audio::SAMPLE_RATE, gb::CYCLES_PER_SEC, mmu::Mmu};
 
 use self::{
     channel::{Dac, LengthModChannel, SweepModChannel, VolumeModChannel},
+    noise_channel::NoiseChannel,
     pwm_channel::PwmChannel,
     wave_channel::WaveChannel,
 };
@@ -20,6 +22,7 @@ const NR44_ADDRESS: usize = 0xff23;
 const NR52_ADDRESS: usize = 0xff26;
 
 const CYCLES_PER_512HZ: usize = CYCLES_PER_SEC / 512;
+const CYCLES_PER_SAMPLE_RATE: usize = CYCLES_PER_SEC / SAMPLE_RATE as usize;
 
 /// NR XX channel register addresses.
 /// Initialize with NR X4 address.
@@ -54,202 +57,14 @@ impl From<usize> for NrXxAddress {
     }
 }
 
-// pub struct NoiseChannel {
-//     on: bool,
-//     nrxx: NrXxAddress,
-
-//     current_sample: Sample,
-
-//     length_timer: u8,
-//     lfsr: u16,
-//     volume: u8,
-
-//     shift: u8,
-//     short: bool,
-//     divider: u8,
-
-//     envelope_counter: usize,
-//     length_timer_counter: usize,
-//     lfsr_counter: usize,
-// }
-
-// impl NoiseChannel {
-//     pub fn new(nrx4_address: usize) -> Self {
-//         Self {
-//             on: false,
-//             nrxx: NrXxAddress(nrx4_address),
-//             current_sample: Default::default(),
-//             lfsr: 0x7fff,
-//             length_timer: 0,
-//             length_timer_counter: 0,
-//             envelope_counter: 0,
-//             lfsr_counter: 0,
-//             volume: 0,
-//             shift: 0,
-//             short: false,
-//             divider: 0,
-//         }
-//     }
-
-//     pub fn tick(&mut self, cycles: usize, mmu: &mut Mmu) -> ChannelState {
-//         // Channel triggered
-//         if mmu.check_bit(self.nrxx.nrx4_address(), 7) {
-//             self.trigger(mmu);
-//         }
-
-//         if !self.on {
-//             return ChannelState {
-//                 on: self.on,
-//                 samples: vec![Sample { value: 0.0 }; cycles],
-//             };
-//         }
-
-//         let mut samples = vec![];
-
-//         for _ in 0..cycles {
-//             self.update_envelope(1, mmu);
-//             self.update_lfsr(1, &mmu);
-
-//             samples.push(self.current_sample);
-
-//             // if !self.on {
-//             //     samples.push(Sample::from_raw_sample(0));
-//             // }
-//         }
-
-//         if mmu.check_bit(self.nrxx.nrx4_address(), 6) {
-//             self.update_length_timer(cycles);
-//         }
-
-//         ChannelState {
-//             on: self.on,
-//             samples,
-//         }
-//     }
-
-//     fn update_lfsr(&mut self, cycles: usize, mmu: &Mmu) {
-//         let divided_freq = CYCLES_PER_NOISE_DIV_TICK / (self.divider as usize + 1);
-
-//         let freq = divided_freq / (2 << self.shift);
-
-//         self.lfsr_counter += cycles;
-
-//         if self.lfsr_counter >= freq {
-//             let nr43 = mmu.read_byte(self.nrxx.nrx3_address());
-
-//             self.shift = (nr43 & 0xf0) >> 4;
-//             self.short = check_bit!(nr43, 3);
-//             self.divider = nr43 & 0x7;
-
-//             // println!("{} {}", self.shift, self.divider);
-//             self.lfsr_counter %= freq;
-
-//             let tap = self.lfsr;
-//             self.lfsr >>= 1;
-
-//             let tap = (tap ^ self.lfsr) & 1;
-
-//             let mask = if self.short { 0x4040 } else { 0x4000 };
-
-//             if tap == 0 {
-//                 self.lfsr &= !mask;
-//                 self.current_sample = Sample::from_raw_sample(0xf & self.volume);
-//             } else {
-//                 self.current_sample = Sample::from_raw_sample(0);
-//                 self.lfsr |= mask;
-//             }
-//         }
-//     }
-
-//     fn trigger(&mut self, mmu: &mut Mmu) {
-//         self.on = true;
-//         self.lfsr = 0xff;
-//         self.length_timer = mmu.read_byte(self.nrxx.nrx1_address()) & 0x3f;
-//         // println!(
-//         //     "{:x}, {}",
-//         //     self.nrxx.nrx1_address(),
-//         //     mmu.read_byte(self.nrxx.nrx1_address())
-//         // );
-//         // println!("{}", mmu.check_bit(self.nrxx.nrx4_address(), 6));
-
-//         self.volume = (mmu.read_byte(self.nrxx.nrx2_address()) & 0xf0) >> 4;
-//         self.envelope_counter = 0;
-
-//         let nr43 = mmu.read_byte(self.nrxx.nrx3_address());
-
-//         self.shift = (nr43 & 0xf0) >> 4;
-//         self.short = check_bit!(nr43, 3);
-//         self.divider = nr43 & 0x7;
-
-//         mmu.set_bit_to(self.nrxx.nrx4_address(), 7, false);
-//     }
-
-//     fn update_length_timer(&mut self, cycles: usize) {
-//         self.length_timer_counter += cycles;
-
-//         if self.length_timer_counter >= CYCLES_PER_256HZ {
-//             self.length_timer_counter %= CYCLES_PER_256HZ;
-//             self.length_timer += 1;
-
-//             if self.length_timer == 64 {
-//                 self.on = false;
-//             }
-//         }
-//     }
-
-//     fn update_envelope(&mut self, cycles: usize, mmu: &Mmu) {
-//         let sweep_pace = (mmu.read_byte(self.nrxx.nrx2_address()) & 0x7) as usize;
-
-//         if sweep_pace == 0 {
-//             return;
-//         }
-
-//         self.envelope_counter += cycles;
-
-//         if self.volume == 0 {
-//             self.on = false;
-//             return;
-//         }
-
-//         if self.envelope_counter >= sweep_pace * CYCLES_PER_64HZ {
-//             self.envelope_counter %= sweep_pace * CYCLES_PER_64HZ;
-
-//             let env_increase = mmu.check_bit(self.nrxx.nrx2_address(), 3);
-
-//             if !env_increase {
-//                 self.volume -= 1;
-//             } else {
-//                 self.volume += 1;
-//                 self.volume %= 0xf;
-//             }
-//         }
-//     }
-// }
-
-// pub struct WaveChannel {
-//     on: bool,
-//     dac_on: bool,
-
-//     length_timer_counter: usize,
-//     sample_counter: usize,
-
-//     nrxx: NrXxAddress,
-
-//     current_sample: usize,
-//     length_timer: u8,
-//     period: u16,
-//     volume: u8,
-// }
-
 pub struct Apu {
-    // channel1: PwmChannel,
-    // channel2: PwmChannel,
-    // channel3: WaveChannel,
-    // channel4: NoiseChannel,
     channel1: Dac<LengthModChannel<VolumeModChannel<SweepModChannel<PwmChannel>>, 64>>,
     channel2: Dac<LengthModChannel<VolumeModChannel<PwmChannel>, 64>>,
     channel3: Dac<LengthModChannel<WaveChannel, 256>>,
-    channel4: Dac<LengthModChannel<PwmChannel, 64>>,
+    channel4: Dac<LengthModChannel<VolumeModChannel<NoiseChannel>, 256>>,
+
+    sample_rate_counter: usize,
+    pub sample_ready: bool,
 
     frame_seq_step: u8,
 
@@ -260,6 +75,8 @@ pub struct Apu {
     length_ctr_clocked: bool,
     vol_env_clocked: bool,
     sweep_clocked: bool,
+
+    noise_clocked: bool,
     pwm_clocked: bool,
     wave_clocked: bool,
 }
@@ -288,6 +105,9 @@ impl Default for Apu {
             channel3: Dac::new(NR34_ADDRESS),
             channel4: Dac::new(NR44_ADDRESS),
 
+            sample_rate_counter: 0,
+            sample_ready: false,
+
             frame_seq_step: 0,
 
             dac_seq_counter: 0,
@@ -297,6 +117,8 @@ impl Default for Apu {
             length_ctr_clocked: false,
             vol_env_clocked: false,
             sweep_clocked: false,
+
+            noise_clocked: false,
             pwm_clocked: false,
             wave_clocked: false,
         }
@@ -316,16 +138,19 @@ impl Apu {
     set_nr52!(set_channel3_to, 2);
     set_nr52!(set_channel4_to, 3);
 
-    pub fn tick(&mut self, cycles: usize, mmu: &mut Mmu) -> Vec<Sample> {
+    pub fn tick(&mut self, cycles: usize, mmu: &mut Mmu) {
         if !self.on(mmu) {
-            return vec![Default::default(); cycles];
+            return;
         }
 
-        let mut channel1_samples = vec![];
-        let mut channel2_samples = vec![];
-        let mut channel3_samples = vec![];
-
         for _ in 0..cycles {
+            self.sample_rate_counter += 1;
+
+            if self.sample_rate_counter > CYCLES_PER_SAMPLE_RATE {
+                self.sample_rate_counter -= CYCLES_PER_SAMPLE_RATE;
+                self.sample_ready = true;
+            }
+
             self.clock_timers();
 
             if self.pwm_clocked {
@@ -359,28 +184,37 @@ impl Apu {
                 self.set_channel3_to(channel3_state.on, mmu);
             }
 
-            channel1_samples.push(Sample::from_raw_sample(self.channel1.current_sample(mmu)));
-            channel2_samples.push(Sample::from_raw_sample(self.channel2.current_sample(mmu)));
-            channel3_samples.push(Sample::from_raw_sample(self.channel3.current_sample(mmu)));
+            if self.noise_clocked {
+                let channel4_state = self.channel4.tick(
+                    mmu,
+                    self.length_ctr_clocked,
+                    self.vol_env_clocked,
+                    self.sweep_clocked,
+                );
+
+                self.set_channel4_to(channel4_state.on, mmu);
+            }
 
             self.reset_clocked();
         }
+    }
 
-        self.mix(
-            channel1_samples,
-            channel2_samples,
-            channel3_samples,
-            // channel4_state.samples,
-        )
+    pub fn get_sample(&mut self, mmu: &Mmu) -> Sample {
+        (self.channel1.current_sample(mmu)
+            + self.channel2.current_sample(mmu)
+            + self.channel3.current_sample(mmu)
+            + self.channel4.current_sample(mmu))
+            / 4.0
     }
 
     fn clock_timers(&mut self) {
         self.clock_frame_seq();
-        self.clock_dac_seq()
+        self.clock_dac_seq();
     }
 
     fn clock_dac_seq(&mut self) {
         self.dac_seq_counter = (self.dac_seq_counter + 1) % 4;
+        self.noise_clocked = true;
 
         match self.dac_seq_counter {
             0 => {
@@ -425,18 +259,7 @@ impl Apu {
         self.vol_env_clocked = false;
         self.pwm_clocked = false;
         self.wave_clocked = false;
-    }
-
-    pub fn mix(
-        &self,
-        channel1: Vec<Sample>,
-        channel2: Vec<Sample>,
-        channel3: Vec<Sample>,
-        // channel4: Vec<Sample>,
-    ) -> Vec<Sample> {
-        itertools::izip!(channel1, channel2, channel3)
-            .map(|(sample1, sample2, sample3)| (sample1 + sample2 + sample3) / 3.0)
-            .collect()
+        self.noise_clocked = false;
     }
 }
 

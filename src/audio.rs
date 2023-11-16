@@ -1,16 +1,21 @@
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 
-use crate::{apu::Sample, gb::CYCLES_PER_SEC};
+use crate::apu::Sample;
+
+pub const SAMPLE_RATE: u32 = 44100;
 
 pub trait Audio {
     fn update(&mut self, samples: Vec<Sample>);
-    fn is_full(&self) -> bool;
+    fn len(&self) -> usize;
 }
 
 pub struct NoAudio;
@@ -18,8 +23,8 @@ pub struct NoAudio;
 impl Audio for NoAudio {
     fn update(&mut self, _samples: Vec<Sample>) {}
 
-    fn is_full(&self) -> bool {
-        false
+    fn len(&self) -> usize {
+        42
     }
 }
 
@@ -32,7 +37,7 @@ pub struct Rodio {
 
 impl Rodio {
     pub fn new() -> Self {
-        let samples_buffer = GbSamplesBuffer::new(CYCLES_PER_SEC as u32, vec![]);
+        let samples_buffer = GbSamplesBuffer::new(SAMPLE_RATE, vec![]);
         let (_audio_stream, _audio_stream_handle) = OutputStream::try_default().unwrap();
 
         let _audio_sink = Sink::try_new(&_audio_stream_handle).unwrap();
@@ -55,15 +60,17 @@ impl Audio for Rodio {
         self.samples_buffer.update(samples);
     }
 
-    fn is_full(&self) -> bool {
-        self.samples_buffer.data.lock().unwrap().len() > CYCLES_PER_SEC / 20
+    fn len(&self) -> usize {
+        self.samples_buffer.len.load(Ordering::Acquire)
     }
 }
 
 #[derive(Clone)]
 pub struct GbSamplesBuffer {
     data: Arc<Mutex<VecDeque<Sample>>>,
+    played_samples: Arc<Mutex<Vec<f32>>>,
     sample_rate: u32,
+    len: Arc<AtomicUsize>,
 }
 
 impl GbSamplesBuffer {
@@ -74,11 +81,15 @@ impl GbSamplesBuffer {
 
         Self {
             data: Arc::new(Mutex::new(data)),
+            played_samples: Arc::new(Mutex::new(vec![])),
             sample_rate,
+            len: Arc::new(AtomicUsize::new(0)),
         }
     }
 
     pub fn update(&mut self, samples: Vec<Sample>) {
+        self.len.fetch_add(samples.len(), Ordering::Release);
+
         let mut data = self.data.lock().unwrap();
         data.extend(samples);
     }
@@ -89,7 +100,20 @@ impl Iterator for GbSamplesBuffer {
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut data = self.data.lock().unwrap();
-        data.pop_front().or(Some(0.0.into())).map(Into::into)
+        let sample = data.pop_front().or(Some(0.0.into())).map(Into::into);
+
+        self.played_samples
+            .lock()
+            .unwrap()
+            .push(sample.unwrap_or(0.0) * 0.1);
+
+        self.len
+            .fetch_update(Ordering::Release, Ordering::Acquire, |x| {
+                Some(x.saturating_sub(1))
+            })
+            .unwrap();
+
+        sample
     }
 }
 

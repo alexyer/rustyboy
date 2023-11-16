@@ -1,6 +1,6 @@
 use crate::{check_bit, mmu::Mmu};
 
-use super::{sample::RawSample, NrXxAddress};
+use super::{sample::RawSample, NrXxAddress, Sample};
 
 pub trait Channel {
     fn new(control_register_address: usize) -> Self;
@@ -59,6 +59,7 @@ pub struct ChannelState {
 
 pub struct Dac<C: Channel> {
     on: bool,
+    cap: f32,
     channel: C,
 }
 
@@ -69,6 +70,7 @@ where
     pub fn new(control_register_address: usize) -> Self {
         Self {
             on: false,
+            cap: 0.0,
             channel: C::new(control_register_address),
         }
     }
@@ -89,8 +91,15 @@ where
         state
     }
 
-    pub fn current_sample(&self, mmu: &Mmu) -> RawSample {
-        self.channel.current_sample(mmu)
+    pub fn current_sample(&mut self, mmu: &Mmu) -> Sample {
+        let input = Sample::from_raw_sample(self.channel.current_sample(mmu));
+        let output = input - self.cap;
+
+        // Constant effectively controls cap's capacity.
+        // Cap in turn acts as HPF to bias the signal.
+        self.cap = input.as_f32() - output.as_f32() * 0.9999;
+
+        output
     }
 }
 
@@ -132,7 +141,7 @@ where
             return;
         }
 
-        self.length_timer = L - (mmu.read_byte(self.nrxx().nrx1_address()) & 0x3f) as u16;
+        self.length_timer = L - (mmu.read_byte(self.nrxx().nrx1_address()) as u16 & (L - 1));
     }
 
     fn on(&self) -> bool {
@@ -150,10 +159,8 @@ where
         vol_env_clocked: bool,
         sweep_clocked: bool,
     ) -> ChannelState {
-        if self.length_enabled {
-            if length_ctr_clocked {
-                self.length_timer -= 1;
-            }
+        if self.length_enabled && length_ctr_clocked {
+            self.length_timer -= 1;
 
             if self.length_timer == 0 {
                 self.on = false;
@@ -214,7 +221,7 @@ where
     }
 
     fn current_sample(&self, mmu: &Mmu) -> RawSample {
-        self.channel.current_sample(mmu) & self.volume
+        self.channel.current_sample(mmu) * self.volume
     }
 
     fn do_update(

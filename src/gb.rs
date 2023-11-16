@@ -96,18 +96,20 @@ impl GameBoy {
         let log_file = log_file_path.map(|path| File::create(path).unwrap());
 
         loop {
-            if !audio.is_full() {
-                if let Some(mut log_file) = log_file.as_ref() {
-                    log_file
-                        .write_all(self.cpu.log_state(&self.mmu).as_bytes())
-                        .unwrap();
-                }
+            if audio.len() > 1500 {
+                continue;
+            }
 
-                let (_, should_quit) = self.step(renderer, audio, debug_disable_sprites);
+            if let Some(mut log_file) = log_file.as_ref() {
+                log_file
+                    .write_all(self.cpu.log_state(&self.mmu).as_bytes())
+                    .unwrap();
+            }
 
-                if should_quit {
-                    return;
-                }
+            let (_, should_quit) = self.step(renderer, audio, debug_disable_sprites);
+
+            if should_quit {
+                return;
             }
         }
     }
@@ -124,9 +126,12 @@ impl GameBoy {
         let cycles = self.cpu.tick(&mut self.mmu);
         self.ppu.tick(cycles, &mut self.mmu, debug_disable_sprites);
         self.timer.tick(cycles, &mut self.mmu);
-        let samples = self.apu.tick(cycles, &mut self.mmu);
+        self.apu.tick(cycles, &mut self.mmu);
 
-        audio.update(samples);
+        if self.apu.sample_ready {
+            audio.update(vec![self.apu.get_sample(&self.mmu)]);
+            self.apu.sample_ready = false;
+        }
 
         if self.ppu.should_draw {
             match renderer.poll_events() {
