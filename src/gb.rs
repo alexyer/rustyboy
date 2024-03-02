@@ -1,4 +1,8 @@
-use std::{fs::File, io::Write};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::Path,
+};
 
 use crate::{
     apu::Apu,
@@ -30,8 +34,32 @@ pub struct GameBoy {
 }
 
 impl GameBoy {
-    pub fn new(boot_rom: Option<&[u8]>, rom: &[u8]) -> Self {
-        let cartridge = load_cartridge(rom);
+    pub fn new(boot_rom_path: Option<String>, rom_path: String, ram_dir: Option<String>) -> Self {
+        let boot_rom = if let Some(boot_rom_path) = boot_rom_path {
+            let mut boot_rom = Vec::new();
+
+            File::open(boot_rom_path)
+                .expect("boot ROM")
+                .read_to_end(&mut boot_rom)
+                .unwrap();
+
+            Some(boot_rom)
+        } else {
+            None
+        };
+
+        let rom = {
+            let mut rom = Vec::new();
+
+            File::open(&rom_path)
+                .expect("ROM")
+                .read_to_end(&mut rom)
+                .unwrap();
+
+            rom
+        };
+
+        let cartridge = load_cartridge(&rom, Path::new(&rom_path), ram_dir.as_ref().map(Path::new));
 
         println!("ROM name: {}", cartridge.name());
         println!("Cartridge type: {:?}", cartridge.cartridge_type());

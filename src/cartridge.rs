@@ -1,4 +1,10 @@
-use std::ffi::CString;
+use std::{
+    ffi::CString,
+    fs::File,
+    io::{Read, Write},
+    os::unix::fs::FileExt,
+    path::Path,
+};
 
 #[derive(Debug)]
 pub enum CartridgeType {
@@ -123,21 +129,55 @@ pub struct Mbc1 {
     ram_enabled: bool,
     rom_bank: u16,
     ram_bank: u16,
+    ram_file: File,
 }
 
 impl Mbc1 {
-    pub fn new(rom: &[u8]) -> Self {
-        let mut cartridge = Self {
+    pub fn new(rom: &[u8], rom_path: &Path, ram_dir: Option<&Path>) -> Self {
+        let rom_name = format!(
+            "{}.ram",
+            rom_path
+                .file_name()
+                .expect("valid ROM file name")
+                .to_string_lossy()
+        );
+        let ram_dir = ram_dir.unwrap_or(rom_path.parent().unwrap());
+        let ram_path = ram_dir.join(rom_name);
+
+        let ram = {
+            let mut ram_file = File::options()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(&ram_path)
+                .unwrap();
+
+            let mut ram = Vec::new();
+
+            let read = ram_file.read_to_end(&mut ram).unwrap();
+
+            if read != 0 {
+                ram
+            } else {
+                vec![0; RamSize::from(rom[0x149]).len()]
+            }
+        };
+
+        let ram_file = File::options().write(true).open(&ram_path).unwrap();
+
+        Self {
             buffer: rom.to_vec(),
-            ram: vec![],
+            ram,
             ram_enabled: false,
             rom_bank: 0x01,
             ram_bank: 0x00,
-        };
+            ram_file,
+        }
+    }
 
-        cartridge.ram = vec![0; cartridge.ram_size().len()];
-
-        cartridge
+    fn save_ram_state(&mut self) {
+        self.ram_file.write_at(&self.ram, 0).unwrap();
+        self.ram_file.flush().unwrap();
     }
 }
 
@@ -181,6 +221,7 @@ impl Cartridge for Mbc1 {
                     let address_in_ram = (addr - 0xa000) + offset_into_ram;
 
                     self.ram[address_in_ram] = data;
+                    self.save_ram_state();
                 }
             }
             _ => panic!("invalid MBC1 memory write: 0x{addr:x}"),
@@ -248,9 +289,42 @@ impl Cartridge for RomOnly {
     }
 }
 
-pub fn load_cartridge(rom: &[u8]) -> Box<dyn Cartridge> {
+pub fn load_cartridge(rom: &[u8], rom_path: &Path, ram_dir: Option<&Path>) -> Box<dyn Cartridge> {
     match CartridgeType::from(rom[0x147]) {
         CartridgeType::RomOnly => Box::new(RomOnly::new(rom)),
-        CartridgeType::Mbc1 => Box::new(Mbc1::new(rom)),
+        CartridgeType::Mbc1 => Box::new(Mbc1::new(rom, rom_path, ram_dir)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mbc1_ram_persistency() {
+        let dir = tempfile::tempdir().unwrap();
+        let rom_path = dir.path().join("rom.gb");
+
+        {
+            let mut cartridge = Mbc1::new(&vec![0x02; 0x150], &rom_path, None);
+
+            // Enable RAM.
+            cartridge.write(0x0, 0xa);
+
+            assert_eq!(cartridge.read(0xa000), 0);
+
+            cartridge.write(0xa000, 0xff);
+
+            assert_eq!(cartridge.read(0xa000), 0xff);
+        }
+
+        {
+            let mut cartridge = Mbc1::new(&vec![0x02; 0x150], &rom_path, None);
+
+            // Enable RAM.
+            cartridge.write(0x0, 0xa);
+
+            assert_eq!(cartridge.read(0xa000), 0xff);
+        }
     }
 }
