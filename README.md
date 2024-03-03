@@ -15,17 +15,17 @@ ROM=<path to rom> rustyboy
 - [x] PPU
 - [x] APU
 - [x] IO
-- [] Serial Data Transfer
+- [ ] Serial Data Transfer
 
 ## MBC
 - [x] No MBC
 - [x] MBC1
-- [] MBC2
-- [] MBC3
-- [] MBC5
-- [] MBC6
-- [] MBC7
-- [] MMM01
-- [] M161
-- [] HuC1
-- [] MBC-3
+- [ ] MBC2
+- [ ] MBC3
+- [ ] MBC5
+- [ ] MBC6
+- [ ] MBC7
+- [ ] MMM01
+- [ ] M161
+- [ ] HuC1
+- [ ] MBC-3
